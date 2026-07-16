@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Press Kit 產生器（純前端版）</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --navy:#1d3557; --navy2:#2b4a7a; --paper:#f5f6f8; --card:#ffffff;
+    --ink:#22303f; --sub:#6b7a8c; --line:#dfe4ea;
+    --ok:#1f9d55; --warn:#c98a00; --danger:#c0392b; --accent:#e8eef7; --word:#2b579a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;background:var(--paper);color:var(--ink);}
+  header{background:var(--navy);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:18px;margin:0;letter-spacing:1px;}
+  header .me{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:13px;}
+  header input{border:none;border-radius:6px;padding:6px 10px;font-size:13px;width:110px;}
+  #fbBanner{display:none;background:#fdecea;color:#b3261e;padding:10px 20px;font-size:14px;}
+  .tabs{display:flex;gap:8px;padding:12px 20px 0;flex-wrap:wrap;max-width:1100px;margin:0 auto;}
+  .tab{background:#e3e8f0;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;
+       padding:9px 18px;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:8px;}
+  .tab.active{background:var(--card);font-weight:700;color:var(--navy);}
+  .tab .rn{border:none;background:transparent;font:inherit;color:inherit;width:110px;padding:0;}
+  .tab .rn:focus{outline:1px dashed var(--navy);}
+  main{max-width:1100px;margin:0 auto;padding:0 20px 60px;}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:0 12px 12px 12px;padding:16px 18px;}
+  .panel h2{font-size:15px;margin:0 0 10px;color:var(--navy);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hint{font-size:12.5px;color:var(--sub);margin:2px 0 10px;line-height:1.6;}
+  .btn{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink);white-space:nowrap;}
+  .btn:hover{background:var(--accent);}
+  .btn.primary{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700;}
+  .btn.primary:hover{background:var(--navy2);}
+  .btn.save{background:var(--ok);border-color:var(--ok);color:#fff;}
+  .btn.freeze{font-weight:700;}
+  .btn.freeze.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .mini{border:1px solid var(--line);background:#fff;border-radius:6px;min-width:26px;height:26px;cursor:pointer;font-size:12px;padding:0 5px;}
+  .mini:hover{background:var(--accent);}
+
+  #tocPanel.frozen{position:sticky;top:0;z-index:50;box-shadow:0 6px 18px rgba(29,53,87,.18);border-radius:0 0 12px 12px;}
+  .wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;}
+
+  /* ── 目錄文件（即介面本體） ── */
+  .doc{flex:1;min-width:340px;border:1px solid var(--line);border-radius:10px;padding:26px 30px;background:#fff;
+       max-height:70vh;overflow:auto;}
+  #tocPanel.frozen .doc{max-height:52vh;}
+  .doc-kt{text-align:center;font-size:16px;font-weight:700;margin-bottom:6px;white-space:pre-line;line-height:1.6;color:#111;}
+  .doc h3{text-align:center;font-size:17px;color:#111;margin:14px auto 18px;letter-spacing:6px;text-indent:6px;
+          width:fit-content;border-bottom:3px double #111;padding:0 4px 2px;font-weight:700;}
+  .row{display:flex;align-items:center;gap:6px;padding:7px 0;border-radius:8px;}
+  .row:hover{background:#f7f9fc;}
+  .row.dragging{opacity:.35;}
+  .row.dragover{outline:2px dashed var(--navy);outline-offset:-2px;}
+  .grip{color:#c3ccd7;cursor:grab;font-size:14px;flex:none;}
+  .dot{flex:none;font-size:13px;}
+  .row input.title{border:1px solid transparent;background:transparent;font-size:14.5px;color:#111;border-radius:6px;
+                   padding:4px 6px;font-family:inherit;flex:0 1 auto;min-width:60px;}
+  .row input.title:hover,.row input.title:focus{border-color:var(--line);background:#fff;outline:none;}
+  .leader{flex:1;border-bottom:2px dotted #8f9cab;transform:translateY(4px);min-width:20px;}
+  .plabel{flex:none;font-size:13.5px;font-weight:600;color:#111;white-space:nowrap;}
+  .plabel.none{color:#b3261e;font-weight:400;font-size:12.5px;}
+  .stdot{flex:none;font-size:11px;}
+  .rowbtns{flex:none;display:flex;gap:5px;align-items:center;}
+
+  /* 展開的檔案詳細列 */
+  .detail{margin:0 0 6px 26px;padding:8px 12px;border:1px dashed var(--line);border-radius:8px;background:#fbfcfe;
+          display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--sub);}
+  .detail .exttag{font-size:10.5px;font-weight:700;border-radius:4px;padding:2px 5px;color:#fff;}
+  .exttag.pdf{background:#c0392b;} .exttag.docx{background:var(--word);}
+  .detail .owner{border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:11.5px;width:58px;text-align:center;background:#fff;color:var(--navy);}
+
+  .addrow{margin-top:14px;display:flex;justify-content:center;}
+  .addrow .btn{border-style:dashed;font-size:15px;padding:7px 40px;color:var(--navy);}
+
+  /* ── 右側控制 ── */
+  .side{display:flex;flex-direction:column;gap:10px;min-width:240px;flex:0 1 280px;}
+  .side textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13.5px;resize:vertical;font-family:inherit;}
+  .side label{font-size:12.5px;color:var(--sub);display:flex;gap:6px;align-items:center;}
+  .side .cap{font-size:12.5px;color:var(--sub);}
+  #busy{font-size:13px;color:var(--navy);min-height:18px;}
+  .side .reset{color:var(--danger);font-size:12px;}
+  footer{text-align:center;color:var(--sub);font-size:12px;padding:18px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📰 Press Kit 產生器</h1>
+  <span style="font-size:12.5px;opacity:.85">純前端版・Firebase 雲端同步・Word / PDF 皆可上傳</span>
+  <div class="me">我的名字 <input id="myName" placeholder="例：樺" maxlength="10"></div>
+</header>
+<div id="fbBanner">⚠️ 尚未設定 Firebase：請打開本檔案，把最上方 firebaseConfig 換成你 Firebase 專案的設定後重新整理。</div>
+
+<div class="tabs" id="tabs"></div>
+
+<main>
+  <section class="panel" id="tocPanel">
+    <h2>📑 目錄（目錄頁 = P.1，直接在每行後方上傳）
+      <button class="btn freeze" id="freezeBtn" onclick="toggleFreeze()"></button>
+    </h2>
+    <div class="hint">
+      每個標題後方按「📎」上傳 <b>Word（.docx）或 PDF</b>，自動偵測頁數、頁碼即時連動。上傳後按「☁ 存檔」大家才看得到。
+      標題可直接點擊修改；按住 ⠿ 上下拖曳可換順序；按「⋯」展開檔案詳細（下載原檔／改頁數／清除／刪除章節）。
+    </div>
+    <div class="wrap">
+      <div class="doc">
+        <div class="doc-kt" id="pvKit"></div>
+        <h3>目錄</h3>
+        <div id="tocRows"></div>
+        <div class="addrow"><button class="btn" onclick="addSection()">＋ 新增主題</button></div>
+      </div>
+      <div class="side">
+        <div>封面標題（可分兩行，如上英文下中文）
+          <textarea id="kitTitle" rows="2" placeholder="TaipeiPLAS &amp; ShoeTech Taipei 2026&#10;開幕典禮新聞資料"></textarea>
+        </div>
+        <label><input type="checkbox" id="stampPages" checked> 在每頁頁尾加上頁碼（- 2 - 樣式）</label>
+        <button class="btn primary" style="padding:12px;font-size:15px" onclick="downloadKit()">⬇ 下載完整 Press Kit（PDF）</button>
+        <div id="busy"></div>
+        <div class="cap">下載內容＝雲端已存檔的章節，目錄頁會自動附上（含 E-Press Kit QR 黏貼框）。</div>
+        <button class="btn reset" onclick="resetRoom()">↺ 還原此房間為預設目錄</button>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>PDF 頁數＝檔案實際頁數；Word 頁數＝Word 儲存時記錄的頁數・所有人看到的是同一份雲端存檔內容</footer>
+
+<script type="module">
+/* ════════════════════════════════════════════════════════════════
+   🔧 Firebase 設定：換成你 presskit 專案的 firebaseConfig
+   ════════════════════════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "換成你的",
+  authDomain: "換成你的.firebaseapp.com",
+  databaseURL: "https://換成你的-default-rtdb.firebaseio.com",
+  projectId: "換成你的",
+  storageBucket: "換成你的.appspot.com",
+  messagingSenderId: "換成你的",
+  appId: "換成你的"
+};
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, get, remove }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const ROOT = "PRESS_KIT";
+const ROOM_IDS = ["room1","room2","room3"];
+const MAX_MB = 8;
+
+const DEFAULT_SECTIONS = [
+  { title:"開幕典禮程序表", owner:"A" },
+  { title:"中華民國對外貿易發展協會 黃志芳董事長致詞參考稿", owner:"C" },
+  { title:"貴賓上台揭幕位置圖", owner:"B" },
+  { title:"開幕新聞稿", owner:"C" },
+  { title:"展覽簡介", owner:"B" },
+  { title:"研討會/活動日程表", owner:"B" },
+];
+
+let db=null, curRoom="room1", dragFromId=null;
+let rooms={};
+let pending={};
+let expanded=new Set();
+ROOM_IDS.forEach(r=>pending[r]={});
+
+try{
+  const app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+}catch(e){ document.getElementById("fbBanner").style.display="block"; }
+
+/* ── 我的名字 ── */
+const myNameEl=document.getElementById("myName");
+myNameEl.value=localStorage.getItem("pk_myname")||"";
+myNameEl.onchange=()=>localStorage.setItem("pk_myname",myNameEl.value.trim());
+const myName=()=>myNameEl.value.trim()||"未署名";
+
+/* ── 凍結（像 Excel 凍結窗格） ── */
+let frozen = localStorage.getItem("pk_frozen")!=="0";
+window.toggleFreeze=()=>{ frozen=!frozen; localStorage.setItem("pk_frozen",frozen?"1":"0"); applyFreeze(); };
+function applyFreeze(){
+  document.getElementById("tocPanel").classList.toggle("frozen",frozen);
+  document.getElementById("freezeBtn").className="btn freeze"+(frozen?" on":"");
+  document.getElementById("freezeBtn").textContent=frozen?"📌 已凍結（點擊解除）":"📌 凍結目錄";
+}
+applyFreeze();
+
+/* ── 雲端監聽 ── */
+if(db){
+  onValue(ref(db,`${ROOT}/rooms`), snap=>{
+    rooms = snap.val()||{};
+    let seeded=false;
+    ROOM_IDS.forEach((r,i)=>{ if(!rooms[r]){ seedRoom(r,i); seeded=true; } });
+    if(!seeded) renderAll();
+  });
+}else{ renderAll(); }
+
+function seedRoom(rid,i){
+  const secs={};
+  DEFAULT_SECTIONS.forEach((s,idx)=>{ secs["s"+idx]={ title:s.title, owner:s.owner, order:idx }; });
+  set(ref(db,`${ROOT}/rooms/${rid}`),{ name:`Room ${i+1}`, kitTitle:"", sections:secs });
+}
+
+/* ── 工具 ── */
+const room=()=>rooms[curRoom]||{name:curRoom,sections:{}};
+function orderedSecs(){
+  const s=room().sections||{};
+  return Object.entries(s).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order??0)-(b.order??0));
+}
+function fmtTime(ts){ if(!ts)return""; const d=new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+const extOf=s=>(s.ext||"pdf");
+
+/* ── 分頁（房間） ── */
+function renderTabs(){
+  const box=document.getElementById("tabs"); box.innerHTML="";
+  ROOM_IDS.forEach(rid=>{
+    const t=document.createElement("div");
+    t.className="tab"+(rid===curRoom?" active":"");
+    const inp=document.createElement("input");
+    inp.className="rn"; inp.value=(rooms[rid]&&rooms[rid].name)||rid;
+    inp.title="點兩下可改房間名稱"; inp.readOnly=true;
+    inp.ondblclick=()=>{inp.readOnly=false;inp.focus();inp.select();};
+    inp.onblur=()=>{inp.readOnly=true; if(db)update(ref(db,`${ROOT}/rooms/${rid}`),{name:inp.value.trim()||rid});};
+    inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
+    t.onclick=()=>{ if(rid!==curRoom){curRoom=rid;expanded.clear();renderAll();} };
+    t.appendChild(inp);
+    const badge=document.createElement("span");
+    const saved=Object.values((rooms[rid]||{}).sections||{}).filter(s=>s.fileName).length;
+    badge.textContent=`${saved}份`; badge.style.cssText="font-size:11px;color:var(--sub)";
+    t.appendChild(badge);
+    box.appendChild(t);
+  });
+}
+
+/* ── 目錄列（即介面本體）：● 標題 …… P.x-y ⚪ 📎 ☁ ⋯ ── */
+function renderRows(){
+  const box=document.getElementById("tocRows"); box.innerHTML="";
+  const secs=orderedSecs();
+  const labels=computeToc();
+  secs.forEach((sec,idx)=>{
+    const pend=pending[curRoom][sec.id];
+    const info=labels[idx];
+
+    const row=document.createElement("div");
+    row.className="row"; row.draggable=true; row.dataset.id=sec.id;
+    row.addEventListener("dragstart",()=>{ dragFromId=sec.id; row.classList.add("dragging"); });
+    row.addEventListener("dragend",()=>{ row.classList.remove("dragging"); dragFromId=null;
+      box.querySelectorAll(".dragover").forEach(el=>el.classList.remove("dragover")); });
+    row.addEventListener("dragover",e=>{ e.preventDefault(); if(dragFromId&&dragFromId!==sec.id)row.classList.add("dragover"); });
+    row.addEventListener("dragleave",()=>row.classList.remove("dragover"));
+    row.addEventListener("drop",e=>{ e.preventDefault(); row.classList.remove("dragover");
+      if(dragFromId&&dragFromId!==sec.id) reorderTo(dragFromId,sec.id); });
+
+    const grip=document.createElement("span"); grip.className="grip"; grip.textContent="⠿";
+    const dot=document.createElement("span"); dot.className="dot"; dot.textContent="●";
+    const ti=document.createElement("input"); ti.className="title"; ti.value=sec.title; ti.title="點擊可修改標題";
+    ti.size=Math.min(Math.max(sec.title.length+2,8),34);
+    ti.oninput=()=>{ ti.size=Math.min(Math.max(ti.value.length+2,8),34); };
+    ti.onchange=()=>update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`),{title:ti.value.trim()});
+    ti.addEventListener("mousedown",e=>e.stopPropagation());
+    ti.addEventListener("dragstart",e=>e.preventDefault());
+
+    const leader=document.createElement("span"); leader.className="leader";
+    const pl=document.createElement("span");
+    if(info.label){ pl.className="plabel"; pl.textContent=info.label; }
+    else { pl.className="plabel none"; pl.textContent="（尚未上傳）"; }
+
+    const st=document.createElement("span"); st.className="stdot";
+    if(pend){ st.textContent="🟡"; st.title="已選檔，尚未存檔"; }
+    else if(sec.fileName){ st.textContent="🟢"; st.title=`已存檔：${sec.fileName}`; }
+    else { st.textContent="⚪"; st.title="尚未上傳"; }
+
+    const btns=document.createElement("span"); btns.className="rowbtns";
+    const pick=document.createElement("button"); pick.className="mini"; pick.textContent="📎"; pick.title="上傳 Word / PDF";
+    pick.onclick=()=>pickFile(sec.id);
+    btns.appendChild(pick);
+    if(pend){
+      const sv=document.createElement("button"); sv.className="btn save"; sv.style.cssText="padding:3px 10px;font-size:12px";
+      sv.textContent="☁ 存檔"; sv.onclick=()=>saveFile(sec.id,sv);
+      btns.appendChild(sv);
+    }
+    const more=document.createElement("button"); more.className="mini"; more.textContent="⋯"; more.title="檔案詳細／刪除";
+    more.onclick=()=>{ expanded.has(sec.id)?expanded.delete(sec.id):expanded.add(sec.id); renderAll(); };
+    btns.appendChild(more);
+
+    row.append(grip,dot,ti,leader,pl,st,btns);
+    box.appendChild(row);
+
+    /* 展開列 */
+    if(expanded.has(sec.id)){
+      const d=document.createElement("div"); d.className="detail";
+      const ow=document.createElement("input"); ow.className="owner"; ow.value=sec.owner||""; ow.placeholder="負責";
+      ow.title="負責同仁（A/B/C 或名字）";
+      ow.onchange=()=>update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`),{owner:ow.value.trim()});
+      d.appendChild(ow);
+      const curExt = pend?pend.ext:(sec.fileName?extOf(sec):null);
+      if(curExt){ const tg=document.createElement("span"); tg.className="exttag "+curExt; tg.textContent=curExt.toUpperCase(); d.appendChild(tg); }
+      const meta=document.createElement("span");
+      if(pend) meta.textContent=`${pend.name}（${pend.pages}頁，尚未存檔）`;
+      else if(sec.fileName) meta.textContent=`${sec.fileName}（${sec.pages}頁）・${sec.savedBy||""} ${fmtTime(sec.savedAt)} 存檔`;
+      else meta.textContent="尚未上傳檔案";
+      d.appendChild(meta);
+      if(pend||sec.fileName){
+        const ed=document.createElement("button"); ed.className="mini"; ed.textContent="✏ 頁數";
+        ed.onclick=()=>editPages(sec,pend); d.appendChild(ed);
+      }
+      if(sec.fileName&&!pend){
+        const dl=document.createElement("button"); dl.className="mini"; dl.textContent="⬇ 原檔";
+        dl.onclick=()=>downloadOriginal(sec); d.appendChild(dl);
+      }
+      if(pend||sec.fileName){
+        const cl=document.createElement("button"); cl.className="mini"; cl.textContent="清除檔案";
+        cl.onclick=()=>{ if(confirm("清除這個章節的檔案？（雲端存檔也會刪除）")){
+            delete pending[curRoom][sec.id];
+            remove(ref(db,`${ROOT}/files/${curRoom}/${sec.id}`));
+            update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`),{fileName:null,pages:null,size:null,ext:null,savedBy:null,savedAt:null});
+          }};
+        d.appendChild(cl);
+      }
+      const del=document.createElement("button"); del.className="mini"; del.style.color="var(--danger)";
+      del.textContent="✕ 刪除章節";
+      del.onclick=()=>{ if(confirm(`刪除章節「${sec.title}」？（含已存檔案）`)){
+          remove(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`));
+          remove(ref(db,`${ROOT}/files/${curRoom}/${sec.id}`));
+          delete pending[curRoom][sec.id]; expanded.delete(sec.id);
+        }};
+      d.appendChild(del);
+      box.appendChild(d);
+    }
+  });
+}
+
+function reorderTo(fromId,toId){
+  const ids=orderedSecs().map(s=>s.id);
+  const fi=ids.indexOf(fromId), ti=ids.indexOf(toId);
+  ids.splice(ti,0,ids.splice(fi,1)[0]);
+  const upd={}; ids.forEach((id,i)=>upd[`${id}/order`]=i);
+  update(ref(db,`${ROOT}/rooms/${curRoom}/sections`),upd);
+}
+
+/* ── 選檔：PDF 或 Word（.docx），自動偵測頁數 ── */
+function pickFile(secId){
+  const inp=document.createElement("input"); inp.type="file";
+  inp.accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  inp.onchange=async ()=>{
+    const f=inp.files[0]; if(!f)return;
+    const isPdf=/\.pdf$/i.test(f.name), isDocx=/\.docx$/i.test(f.name);
+    if(/\.doc$/i.test(f.name)){ alert("舊版 .doc 讀不到頁數，請在 Word 另存成 .docx 或 PDF 再上傳。"); return; }
+    if(!isPdf&&!isDocx){ alert("只接受 PDF 或 Word（.docx）。"); return; }
+    if(f.size>MAX_MB*1024*1024){ alert(`檔案超過 ${MAX_MB}MB 上限，請壓縮後再上傳。`); return; }
+    try{
+      const bytes=await f.arrayBuffer();
+      let pages=null;
+      if(isPdf){
+        const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true});
+        pages=doc.getPageCount();
+      }else{
+        pages=await docxPageCount(bytes);
+        if(pages==null){
+          const v=prompt(`「${f.name}」裡讀不到 Word 記錄的頁數。\n請打開 Word 看左下角總頁數後輸入：`);
+          pages=parseInt(v,10);
+          if(!pages||pages<1){ alert("沒有頁數就無法計算目錄，已取消。"); return; }
+        }
+      }
+      const base64=await new Promise((res,rej)=>{
+        const r=new FileReader();
+        r.onload=()=>res(r.result.split(",")[1]);
+        r.onerror=()=>rej(new Error("讀檔失敗"));
+        r.readAsDataURL(f);
+      });
+      pending[curRoom][secId]={name:f.name,pages,size:f.size,base64,ext:isPdf?"pdf":"docx"};
+      renderAll();
+    }catch(e){ alert("無法讀取這個檔案："+e.message); }
+  };
+  inp.click();
+}
+
+/* Word 頁數：讀 docx 內 docProps/app.xml 的 <Pages>（Word 儲存時自己算好的） */
+async function docxPageCount(bytes){
+  try{
+    const zip=await JSZip.loadAsync(bytes);
+    const app=zip.file("docProps/app.xml");
+    if(!app) return null;
+    const xml=await app.async("string");
+    const m=xml.match(/<Pages>(\d+)<\/Pages>/);
+    return m?parseInt(m[1],10):null;
+  }catch(e){ return null; }
+}
+
+function editPages(sec,pend){
+  const cur=pend?pend.pages:sec.pages;
+  const v=prompt("修改此章節頁數：",cur);
+  if(v==null)return;
+  const n=parseInt(v,10);
+  if(!n||n<1){ alert("頁數需為正整數"); return; }
+  if(pend){ pend.pages=n; renderAll(); }
+  else update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`),{pages:n});
+}
+
+/* ── 存檔到雲端 ── */
+async function saveFile(secId,btn){
+  const p=pending[curRoom][secId]; if(!p||!db)return;
+  btn.disabled=true; btn.textContent="儲存中…";
+  try{
+    await set(ref(db,`${ROOT}/files/${curRoom}/${secId}`),p.base64);
+    await update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${secId}`),
+      {fileName:p.name,pages:p.pages,size:p.size,ext:p.ext,savedBy:myName(),savedAt:Date.now()});
+    delete pending[curRoom][secId];
+  }catch(e){ alert("存檔失敗："+e.message); }
+  renderAll();
+}
+
+/* ── 下載單一章節原始檔 ── */
+async function downloadOriginal(sec){
+  const snap=await get(ref(db,`${ROOT}/files/${curRoom}/${sec.id}`));
+  const b64=snap.val();
+  if(!b64){ alert("雲端找不到檔案內容。"); return; }
+  const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+  const mime=extOf(sec)==="docx"
+    ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    : "application/pdf";
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([bytes],{type:mime}));
+  a.download=sec.fileName||("section."+extOf(sec));
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ── 新增主題（＋） ── */
+window.addSection=()=>{
+  const t=prompt("新主題標題（例：臺灣機械工業同業公會 莊大立理事長致詞參考稿）");
+  if(t==null||!t.trim())return;
+  const secs=orderedSecs();
+  const upd={};
+  const nid="s"+Date.now();
+  upd[nid]={title:t.trim(),owner:"",order:secs.length};
+  update(ref(db,`${ROOT}/rooms/${curRoom}/sections`),upd);
+};
+window.resetRoom=()=>{
+  if(!confirm("還原成預設目錄？此房間所有章節與已存檔案都會清空。"))return;
+  remove(ref(db,`${ROOT}/files/${curRoom}`));
+  pending[curRoom]={}; expanded.clear();
+  const secs={};
+  DEFAULT_SECTIONS.forEach((s,idx)=>{ secs["s"+idx]={title:s.title,owner:s.owner,order:idx}; });
+  update(ref(db,`${ROOT}/rooms/${curRoom}`),{sections:secs});
+};
+
+/* ── 目錄頁碼：目錄頁 = P.1，內容從 P.2 起；未上傳不佔頁 ── */
+function computeToc(){
+  let running=2;
+  return orderedSecs().map(sec=>{
+    const pend=pending[curRoom][sec.id];
+    const pages=pend?pend.pages:(sec.pages||null);
+    if(pages==null) return {title:sec.title,label:null};
+    const label = pages<=1 ? `P.${running}` : `P.${running}-${running+pages-1}`;
+    running+=pages;
+    return {title:sec.title,label,pages};
+  });
+}
+
+function renderTitle(){
+  const kt=document.getElementById("kitTitle");
+  if(document.activeElement!==kt) kt.value=room().kitTitle||"";
+  kt.onchange=()=>{ if(db)update(ref(db,`${ROOT}/rooms/${curRoom}`),{kitTitle:kt.value}); };
+  document.getElementById("pvKit").textContent=room().kitTitle||"（尚未填寫封面標題，請在右側輸入）";
+}
+
+function renderAll(){ renderTabs(); renderTitle(); renderRows(); }
+
+/* ── 目錄頁 Canvas（照 2024 版樣式） ── */
+const CJK=`"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif`;
+function drawTocCanvas(entries,kitTitle){
+  const S=2.2, W=595.28*S, H=841.89*S;
+  const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+  const L=60*S, R=W-60*S;
+
+  let y=70*S;
+  (kitTitle||"").split("\n").filter(s=>s.trim()).forEach(line=>{
+    ctx.fillStyle="#111"; ctx.font=`700 ${17*S}px ${CJK}`;
+    ctx.textAlign="center"; ctx.fillText(line.trim(),W/2,y); y+=27*S;
+  });
+  y+=26*S;
+  ctx.fillStyle="#111"; ctx.font=`700 ${18*S}px ${CJK}`; ctx.textAlign="center";
+  ctx.fillText("目錄",W/2,y);
+  const tw=ctx.measureText("目錄").width;
+  ctx.strokeStyle="#111"; ctx.lineWidth=1.1*S;
+  ctx.beginPath(); ctx.moveTo(W/2-tw/2-6*S,y+6*S); ctx.lineTo(W/2+tw/2+6*S,y+6*S); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W/2-tw/2-6*S,y+9.5*S); ctx.lineTo(W/2+tw/2+6*S,y+9.5*S); ctx.stroke();
+  y+=44*S;
+
+  ctx.textAlign="left";
+  const body=13.5*S, lineH=29*S;
+  entries.forEach(e=>{
+    ctx.font=`400 ${body}px ${CJK}`;
+    const pageTxt=e.label||"（尚未上傳）";
+    const pw=ctx.measureText(pageTxt).width;
+    const maxW=R-L-pw-30*S;
+    const chars=("●  "+e.title).split("");
+    let line="", linesArr=[];
+    chars.forEach(ch=>{
+      if(ctx.measureText(line+ch).width>maxW && line){ linesArr.push(line); line=ch; }
+      else line+=ch;
+    });
+    linesArr.push(line);
+    linesArr.forEach((ln,i)=>{
+      ctx.fillStyle="#111"; ctx.fillText(ln,L,y);
+      if(i===linesArr.length-1){
+        const lw=ctx.measureText(ln).width;
+        const dotStart=L+lw+8*S, dotEnd=R-pw-8*S;
+        ctx.fillStyle="#333";
+        for(let x=dotStart;x<dotEnd;x+=5.5*S) ctx.fillRect(x,y-2.5*S,2.2*S,2.2*S);
+        ctx.fillStyle = e.label?"#111":"#b3261e";
+        ctx.fillText(pageTxt,R-pw,y);
+      }
+      y+=lineH;
+    });
+    y+=7*S;
+  });
+
+  const bw=150*S, bh=130*S, bx=R-bw, by=H-70*S-bh;
+  ctx.strokeStyle="#444"; ctx.lineWidth=1.2*S; ctx.strokeRect(bx,by,bw,bh);
+  ctx.fillStyle="#333"; ctx.font=`400 ${12*S}px ${CJK}`; ctx.textAlign="center";
+  ctx.fillText("E-Press Kit ↓",bx+bw/2,by+22*S);
+  const qs=80*S;
+  ctx.strokeStyle="#9aa7b5"; ctx.setLineDash([5*S,4*S]);
+  ctx.strokeRect(bx+(bw-qs)/2,by+34*S,qs,qs); ctx.setLineDash([]);
+  ctx.fillStyle="#9aa7b5"; ctx.font=`400 ${9*S}px ${CJK}`;
+  ctx.fillText("QR 黏貼處",bx+bw/2,by+34*S+qs/2+3*S);
+  return cv;
+}
+
+/* Word 章節替代頁（維持頁碼對齊） */
+function drawWordPlaceholder(title,pageNo,total){
+  const S=2, W=595.28*S, H=841.89*S;
+  const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle="#c9d2dd"; ctx.setLineDash([8*S,6*S]); ctx.lineWidth=1.2*S;
+  ctx.strokeRect(40*S,40*S,W-80*S,H-80*S); ctx.setLineDash([]);
+  ctx.textAlign="center"; ctx.fillStyle="#2b579a";
+  ctx.font=`700 ${20*S}px ${CJK}`;
+  ctx.fillText("【 Word 章節 】",W/2,H/2-60*S);
+  ctx.fillStyle="#22303f"; ctx.font=`600 ${15*S}px ${CJK}`;
+  ctx.fillText(title,W/2,H/2-20*S);
+  ctx.fillStyle="#6b7a8c"; ctx.font=`400 ${12*S}px ${CJK}`;
+  ctx.fillText(`此章節第 ${pageNo} / ${total} 頁（佔位頁）`,W/2,H/2+16*S);
+  ctx.fillText("請在目錄列按「⋯ → ⬇ 原檔」下載 Word 檔，列印後替換此頁",W/2,H/2+42*S);
+  return cv;
+}
+
+/* ── 下載完整 Press Kit ── */
+window.downloadKit=async ()=>{
+  const busy=document.getElementById("busy");
+  const secs=orderedSecs();
+  const hasPending=secs.some(s=>pending[curRoom][s.id]);
+  if(hasPending && !confirm("有章節「已選檔但尚未存檔」。下載內容以雲端存檔為準，未存檔的檔案不會包含進去。仍要下載？")) return;
+  const saved=secs.filter(s=>s.fileName);
+  if(!saved.length){ alert("目前沒有任何已存檔的章節。"); return; }
+  busy.textContent="⏳ 正在從雲端抓取檔案…";
+  try{
+    const {PDFDocument,StandardFonts,rgb}=PDFLib;
+    const out=await PDFDocument.create();
+
+    let running=2;
+    const entries=secs.map(s=>{
+      if(!s.fileName) return {title:s.title,label:null};
+      const label = s.pages<=1?`P.${running}`:`P.${running}-${running+s.pages-1}`;
+      running+=s.pages;
+      return {title:s.title,label};
+    });
+    const cv=drawTocCanvas(entries,room().kitTitle||"");
+    const png=await out.embedPng(cv.toDataURL("image/png"));
+    const tocPage=out.addPage([595.28,841.89]);
+    tocPage.drawImage(png,{x:0,y:0,width:595.28,height:841.89});
+
+    const wordSecs=[];
+    for(const s of saved){
+      busy.textContent=`⏳ 合併：${s.title}…`;
+      if(extOf(s)==="docx"){
+        wordSecs.push(s.title);
+        for(let i=1;i<=s.pages;i++){
+          const pcv=drawWordPlaceholder(s.title,i,s.pages);
+          const pimg=await out.embedPng(pcv.toDataURL("image/png"));
+          const pg=out.addPage([595.28,841.89]);
+          pg.drawImage(pimg,{x:0,y:0,width:595.28,height:841.89});
+        }
+        continue;
+      }
+      const snap=await get(ref(db,`${ROOT}/files/${curRoom}/${s.id}`));
+      const b64=snap.val();
+      if(!b64){ alert(`「${s.title}」雲端找不到檔案內容，已跳過。`); continue; }
+      const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+      const src=await PDFDocument.load(bytes,{ignoreEncryption:true});
+      const copied=await out.copyPages(src,src.getPageIndices());
+      copied.forEach(p=>out.addPage(p));
+    }
+
+    if(document.getElementById("stampPages").checked){
+      const font=await out.embedFont(StandardFonts.Helvetica);
+      out.getPages().forEach((p,i)=>{
+        const txt=`- ${i+1} -`;
+        const w=font.widthOfTextAtSize(txt,10);
+        p.drawText(txt,{x:(p.getWidth()-w)/2,y:22,size:10,font,color:rgb(.35,.4,.47)});
+      });
+    }
+
+    busy.textContent="⏳ 產生檔案中…";
+    const blob=new Blob([await out.save()],{type:"application/pdf"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`${room().name||curRoom}_PressKit.pdf`;
+    a.click(); URL.revokeObjectURL(a.href);
+    busy.textContent=`✅ 完成，共 ${out.getPageCount()} 頁。`+
+      (wordSecs.length?`（Word 章節以佔位頁維持頁碼：${wordSecs.join("、")}）`:"");
+  }catch(e){ busy.textContent=""; alert("產生失敗："+e.message); }
+};
+
+renderAll();
+</script>
+</body>
+</html>
