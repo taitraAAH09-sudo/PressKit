@@ -267,7 +267,7 @@ async function connectFirebase(){
         }
       });
       updateConnBadge();
-      renderAll();
+      renderAllSafe();   // 打字中不重畫，避免正在輸入的標籤/標題被雲端同步洗掉
     }, err=>{ clearTimeout(timeoutId); cloudStatus="error"; updateConnBadge(); });
   }catch(e){
     clearTimeout(timeoutId);
@@ -390,11 +390,6 @@ function renderRows(){
     dn.disabled=idx===secs.length-1; dn.onclick=()=>moveSection(sec.id,1);
     mv.append(up,dn);
     const dot=document.createElement("span"); dot.className="dot"; dot.textContent="●";
-    if(sec.owner==="A"||sec.owner==="B"||sec.owner==="C"){
-      const legacyOwner=(sec.title.includes("程序表")||sec.title.includes("貴賓上台"))?"活動組":"展務組";
-      sec.owner=legacyOwner;
-      if(db) update(ref(db,`${ROOT}/rooms/${curRoom}/sections/${sec.id}`),{owner:legacyOwner}).catch(()=>{});
-    }
     const ow=document.createElement("input"); ow.className="ownerTag"; ow.value=sec.owner||""; ow.placeholder="負責";
     ow.title="負責單位／同仁，可直接點擊修改";
     ow.size=Math.max((sec.owner||"負責").length,2);
@@ -729,6 +724,20 @@ function loadImage(src){
 }
 
 function renderAll(){ renderTabs(); renderTitle(); renderQr(); renderRows(); }
+
+/* ── 打字保護：雲端同步進來時若正在輸入，先不重畫畫面，等離開輸入框再補畫 ── */
+let deferredRender=false;
+function isTypingNow(){
+  const a=document.activeElement;
+  return !!(a && (a.tagName==="INPUT"||a.tagName==="TEXTAREA") && a.type!=="file");
+}
+function renderAllSafe(){
+  if(isTypingNow()){ deferredRender=true; return; }
+  renderAll();
+}
+document.addEventListener("focusout",()=>{
+  if(deferredRender){ deferredRender=false; setTimeout(()=>renderAll(),120); }
+});
 
 /* ── 目錄頁 Canvas（照 2024 版樣式） ── */
 const CJK=`"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif`;
