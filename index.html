@@ -338,6 +338,32 @@ function renderTabs(){
 }
 
 /* ── 目錄列（即介面本體）：● 標題 …… P.x-y ⚪ 📎 ☁ ⋯ ── */
+/* ── 負責單位標籤色塊：活動組／展務組固定色，其他自訂名稱依名字自動配色（同名同色） ── */
+const OWNER_COLORS={
+  "活動組":{bg:"#fff1e0",bd:"#e8963e",fg:"#9a5b00"},
+  "展務組":{bg:"#e3efe8",bd:"#3f9e6e",fg:"#146c46"},
+};
+const OWNER_PALETTE=[
+  {bg:"#e8e4f8",bd:"#8a7cd8",fg:"#4c3daf"},
+  {bg:"#fde7ef",bd:"#e0699a",fg:"#b02a63"},
+  {bg:"#e2f0fb",bd:"#5b9bd5",fg:"#1d5fa0"},
+  {bg:"#dff4f4",bd:"#3fb0ae",fg:"#0f7573"},
+  {bg:"#f3f0dd",bd:"#b0a23f",fg:"#6f6410"},
+  {bg:"#fdeaea",bd:"#d96c6c",fg:"#a32626"},
+];
+function ownerColor(name){
+  const n=(name||"").trim();
+  if(!n) return null;
+  if(OWNER_COLORS[n]) return OWNER_COLORS[n];
+  let h=0; for(const ch of n) h=(h*31+ch.codePointAt(0))>>>0;
+  return OWNER_PALETTE[h%OWNER_PALETTE.length];
+}
+function paintOwner(el,name){
+  const c=ownerColor(name);
+  if(c){ el.style.background=c.bg; el.style.borderColor=c.bd; el.style.color=c.fg; el.style.fontWeight="700"; }
+  else { el.style.background=""; el.style.borderColor=""; el.style.color=""; el.style.fontWeight=""; }
+}
+
 function renderRows(){
   const box=document.getElementById("tocRows"); box.innerHTML="";
   const secs=orderedSecs();
@@ -372,7 +398,8 @@ function renderRows(){
     const ow=document.createElement("input"); ow.className="ownerTag"; ow.value=sec.owner||""; ow.placeholder="負責";
     ow.title="負責單位／同仁，可直接點擊修改";
     ow.size=Math.max((sec.owner||"負責").length,2);
-    ow.oninput=()=>{ ow.size=Math.max(ow.value.length,2); };
+    paintOwner(ow,sec.owner);
+    ow.oninput=()=>{ ow.size=Math.max(ow.value.length,2); paintOwner(ow,ow.value); };
     ow.onchange=()=>{
       const val=ow.value.trim();
       room().sections[sec.id].owner=val;
