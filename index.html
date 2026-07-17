@@ -258,6 +258,14 @@ async function connectFirebase(){
     ({getDatabase,ref,onValue,set,update,get,remove,push}=dbMod);
     const app=initializeApp(firebaseConfig);
     db=getDatabase(app);
+    // 刪除紀錄只保留 3 天：每次開頁自動清掉過期的紀錄，避免越積越多
+    get(ref(db,`${ROOT}/log`)).then(snap=>{
+      const all=snap.val()||{};
+      const cutoff=Date.now()-3*24*60*60*1000;
+      const dead={};
+      Object.entries(all).forEach(([k,v])=>{ if(!v||!v.at||v.at<cutoff) dead[k]=null; });
+      if(Object.keys(dead).length) update(ref(db,`${ROOT}/log`),dead).catch(()=>{});
+    }).catch(()=>{});
     onValue(ref(db,`${ROOT}/rooms`), snap=>{
       clearTimeout(timeoutId);
       cloudStatus="ok";
@@ -729,7 +737,7 @@ window.showLog=async ()=>{
   const list=Object.values(all).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,50);
   if(!list.length){ alert("目前沒有任何刪除紀錄。"); return; }
   const roomName=id=>(rooms[id]&&rooms[id].name)||id||"";
-  alert("🗂 刪除紀錄（最近 50 筆，新到舊）\n\n"+list.map(e=>
+  alert("🗂 刪除紀錄（只保留最近 3 天、最多顯示 50 筆，新到舊）\n\n"+list.map(e=>
     `${fmtTime(e.at)}｜${roomName(e.room)}｜${e.who?e.who+"：":""}${e.action}${e.detail?"（"+e.detail+"）":""}`
   ).join("\n"));
 };
