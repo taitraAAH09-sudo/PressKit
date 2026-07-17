@@ -166,6 +166,10 @@
         </div>
         <div id="busy"></div>
         <button class="btn reset" onclick="resetRoom()">↺ 還原此房間為預設目錄</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="flex:1" onclick="undoReset()">♻ 還原上次重製</button>
+          <button class="btn" style="flex:1" onclick="showLog()">🗂 刪除紀錄</button>
+        </div>
       </div>
     </div>
     <button class="btn zipCorner" onclick="downloadOriginalsZip()" title="下載所有原始檔（ZIP，含各章節上傳的原始 PDF）">⬇ 原始檔</button>
@@ -192,7 +196,7 @@ const firebaseConfig = {
    靜態 import 如果連不到 gstatic.com（防火牆、離線、CDN 掛掉…），整支 <script type="module"> 會直接整份不執行、
    連畫面渲染、拖曳、上傳、下載 PDF 這些「跟雲端無關」的功能也會一起壞掉。改成動態載入之後，
    就算 Firebase 完全連不上，其餘功能仍然正常運作，只有雲端同步會關閉。 */
-let initializeApp, getDatabase, ref, onValue, set, update, get, remove;
+let initializeApp, getDatabase, ref, onValue, set, update, get, remove, push;
 
 const ROOT = "PRESS_KIT";
 const ROOM_IDS = ["room1","room2","room3"];
@@ -251,7 +255,7 @@ async function connectFirebase(){
     const appMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
     const dbMod  = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js");
     ({initializeApp}=appMod);
-    ({getDatabase,ref,onValue,set,update,get,remove}=dbMod);
+    ({getDatabase,ref,onValue,set,update,get,remove,push}=dbMod);
     const app=initializeApp(firebaseConfig);
     db=getDatabase(app);
     onValue(ref(db,`${ROOT}/rooms`), snap=>{
@@ -338,6 +342,13 @@ function renderTabs(){
 }
 
 /* ── 目錄列（即介面本體）：● 標題 …… P.x-y ⚪ 📎 ☁ ⋯ ── */
+/* ── 共編保護：刪除／重製一律連問三次，並寫入雲端「刪除紀錄」（時間＋動作） ── */
+function confirm3(msgs){ for(const m of msgs){ if(!confirm(m)) return false; } return true; }
+function logAction(who,action,detail){
+  if(!db) return;
+  push(ref(db,`${ROOT}/log`),{who,action,detail:detail||"",room:curRoom,at:Date.now()}).catch(()=>{});
+}
+
 /* ── 負責單位標籤色塊：活動組／展務組固定色，其他自訂名稱依名字自動配色（同名同色） ── */
 const OWNER_COLORS={
   "活動組":{bg:"#fff1e0",bd:"#e8963e",fg:"#9a5b00"},
@@ -456,7 +467,12 @@ function renderRows(){
       }
       if(pend||sec.fileName){
         const cl=document.createElement("button"); cl.className="mini"; cl.textContent="清除檔案";
-        cl.onclick=()=>{ if(confirm("清除這個章節的檔案？（雲端存檔也會刪除）")){
+        cl.onclick=()=>{ if(confirm3([
+            `【確認 1/3】清除「${sec.title}」的檔案？（雲端存檔也會刪除）`,
+            "【確認 2/3】其他同事看到的檔案也會一併被清除。",
+            "【確認 3/3】確定要清除這個檔案嗎？",
+          ])){
+            logAction("","清除檔案",`${sec.title}／${sec.fileName||(pend&&pend.name)||""}`);
             delete pending[curRoom][sec.id];
             Object.assign(room().sections[sec.id],{fileName:null,pages:null,size:null,ext:null,savedBy:null,savedAt:null});
             if(db){
@@ -469,7 +485,12 @@ function renderRows(){
       }
       const del=document.createElement("button"); del.className="mini"; del.style.color="var(--danger)";
       del.textContent="✕ 刪除章節";
-      del.onclick=()=>{ if(confirm(`刪除章節「${sec.title}」？（含已存檔案）`)){
+      del.onclick=()=>{ if(confirm3([
+          `【確認 1/3】刪除章節「${sec.title}」？（含已存檔案）`,
+          "【確認 2/3】其他同事看到的這個章節也會一併消失。",
+          "【確認 3/3】確定要刪除這個章節嗎？",
+        ])){
+          logAction("","刪除章節",`${sec.title}${sec.fileName?"／含檔案 "+sec.fileName:""}`);
           delete room().sections[sec.id];
           delete pending[curRoom][sec.id]; expanded.delete(sec.id);
           if(db){
@@ -644,16 +665,33 @@ window.addSection=()=>{
   if(db) update(ref(db,`${ROOT}/rooms/${curRoom}/sections`),{[nid]:data}).catch(()=>{ cloudStatus="error"; updateConnBadge(); });
   renderAll();
 };
-window.resetRoom=(rid)=>{
+window.resetRoom=async (rid)=>{
   rid=rid||curRoom;
   const label=(rooms[rid]&&rooms[rid].name)||rid;
   // 重製前連問三次，避免誤按把整個房間清空
   const msgs=[
     `【確認 1/3】還原「${label}」為預設目錄？此房間所有章節與已存檔案都會清空。`,
     `【確認 2/3】再確認一次：「${label}」的雲端存檔會一併刪除，其他同事看到的也會被清空。`,
-    `【確認 3/3】最後確認：真的要還原「${label}」嗎？此動作無法復原。`,
+    `【確認 3/3】最後確認：真的要還原「${label}」嗎？（重製前會自動備份到回收桶，可用「♻ 還原上次重製」救回）`,
   ];
   for(const m of msgs){ if(!confirm(m)) return; }
+  // 重製前先把整個房間備份到雲端回收桶（每個房間保留最近一份）
+  if(db){
+    try{
+      const [secSnap,fileSnap]=await Promise.all([
+        get(ref(db,`${ROOT}/rooms/${rid}`)),
+        get(ref(db,`${ROOT}/files/${rid}`)),
+      ]);
+      await set(ref(db,`${ROOT}/trash/${rid}`),{
+        at:Date.now(), by:"",
+        room:secSnap.val()||rooms[rid]||null,
+        files:fileSnap.val()||null,
+      });
+    }catch(e){
+      if(!confirm("⚠️ 備份到回收桶失敗（重製後將無法還原）。仍要繼續重製嗎？")) return;
+    }
+  }
+  logAction("","重製房間",label);
   pending[rid]={}; if(rid===curRoom) expanded.clear();
   const fresh=freshSections();
   rooms[rid].sections=fresh;          // 本機立刻更新
@@ -662,6 +700,38 @@ window.resetRoom=(rid)=>{
     update(ref(db,`${ROOT}/rooms/${rid}`),{sections:fresh}).catch(()=>{ cloudStatus="error"; updateConnBadge(); });
   }
   renderAll();
+};
+
+/* ── 回收桶：還原最近一次重製 ── */
+window.undoReset=async ()=>{
+  if(!db){ alert("未連上雲端，無法還原。"); return; }
+  const snap=await get(ref(db,`${ROOT}/trash/${curRoom}`)).catch(()=>null);
+  const t=snap&&snap.val();
+  if(!t||!t.room){ alert("這個房間沒有可還原的重製備份。"); return; }
+  const label=(rooms[curRoom]&&rooms[curRoom].name)||curRoom;
+  if(!confirm(`要把「${label}」還原成 ${fmtTime(t.at)} 重製前的內容嗎？\n（會覆蓋這個房間目前的內容）`)) return;
+  try{
+    await set(ref(db,`${ROOT}/rooms/${curRoom}`),t.room);
+    if(t.files) await set(ref(db,`${ROOT}/files/${curRoom}`),t.files);
+    else await remove(ref(db,`${ROOT}/files/${curRoom}`));
+  }catch(e){ alert("還原失敗，請稍後再試。"); return; }
+  logAction("","還原重製備份",`${label}（${fmtTime(t.at)} 的備份）`);
+  rooms[curRoom]=t.room;
+  pending[curRoom]={}; expanded.clear();
+  renderAll();
+};
+
+/* ── 刪除紀錄檢視 ── */
+window.showLog=async ()=>{
+  if(!db){ alert("未連上雲端，沒有紀錄。"); return; }
+  const snap=await get(ref(db,`${ROOT}/log`)).catch(()=>null);
+  const all=(snap&&snap.val())||{};
+  const list=Object.values(all).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,50);
+  if(!list.length){ alert("目前沒有任何刪除紀錄。"); return; }
+  const roomName=id=>(rooms[id]&&rooms[id].name)||id||"";
+  alert("🗂 刪除紀錄（最近 50 筆，新到舊）\n\n"+list.map(e=>
+    `${fmtTime(e.at)}｜${roomName(e.room)}｜${e.who?e.who+"：":""}${e.action}${e.detail?"（"+e.detail+"）":""}`
+  ).join("\n"));
 };
 
 /* ── 目錄頁碼：目錄頁 = P.1，內容從 P.2 起；尚未上傳的章節先暫留 1 頁 ── */
