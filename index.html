@@ -109,6 +109,8 @@
   <h1>📰 Press Kit 產生器</h1>
   <span style="font-size:12.5px;opacity:.85">純前端版・Firebase 雲端同步・上傳 PDF 自動整合頁碼與目錄</span>
   <span id="connStatus" style="font-size:11.5px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.15);white-space:nowrap;margin-left:auto"></span>
+  <button onclick="startTour()" title="操作導覽"
+    style="font-size:13px;padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;cursor:pointer;white-space:nowrap">❔ 操作導覽</button>
 </header>
 <div id="fbBanner">⚠️ 尚未設定 Firebase：請打開本檔案，把最上方 firebaseConfig 換成你 Firebase 專案的設定後重新整理。</div>
 
@@ -154,14 +156,14 @@
               <span id="qrPreviewEmpty" style="font-size:10px;color:var(--sub)">尚未上傳</span>
               <img id="qrPreviewImg" style="display:none;max-width:100%;max-height:100%;">
             </div>
-            <button class="btn" style="padding:6px 10px;font-size:12px" onclick="document.getElementById('qrFileInput').click()">📎 上傳圖片</button>
+            <button class="btn" id="qrUploadBtn" style="padding:6px 10px;font-size:12px" onclick="document.getElementById('qrFileInput').click()">📎 上傳圖片</button>
             <button class="btn" id="qrRemoveBtn" style="padding:6px 10px;font-size:12px;display:none;color:var(--danger)" onclick="removeQrImage()">✕ 移除</button>
             <input type="file" id="qrFileInput" accept="image/*" style="display:none" onchange="onQrFileChosen(this.files[0])">
           </div>
         </div>
         <label><input type="checkbox" id="stampPages" checked> 在每頁頁尾加上頁碼（- 2 - 樣式）</label>
         <div style="display:flex;align-items:center;gap:6px">
-          <button class="btn primary" style="padding:12px;font-size:15px;flex:1" onclick="downloadKit()">⬇ 下載完整 Press Kit（PDF）</button>
+          <button class="btn primary" id="dlKitBtn" style="padding:12px;font-size:15px;flex:1" onclick="downloadKit()">⬇ 下載完整 Press Kit（PDF）</button>
           <span class="infoTip" title="下載時會自動計算每章節的頁碼、產生目錄頁，再依序合併成一份 PDF。">ⓘ</span>
         </div>
         <div id="busy"></div>
@@ -1100,6 +1102,93 @@ async function downloadKitPDF(){
 }
 
 renderAll();
+</script>
+
+<!-- ===== 操作導覽 Onboarding Tour ===== -->
+<div id="tourMask" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(4,10,22,.55)"></div>
+<div id="tourHiWrap" style="display:none;position:fixed;inset:0;z-index:9999;pointer-events:none"></div>
+<div id="tourCard" style="display:none;position:fixed;z-index:10000;max-width:360px;background:#1b2532;color:#eef2f7;border-radius:16px;padding:22px 22px 18px;box-shadow:0 18px 50px rgba(0,0,0,.5);font-size:15px;line-height:1.65">
+  <div id="tourStep" style="font-size:13px;color:#ff8a5c;font-weight:700;letter-spacing:.5px;margin-bottom:6px"></div>
+  <div id="tourTitle" style="font-size:19px;font-weight:800;margin-bottom:10px"></div>
+  <div id="tourBody" style="color:#cdd6e2"></div>
+  <div style="display:flex;align-items:center;gap:6px;margin-top:16px">
+    <span id="tourDots" style="display:flex;gap:6px;flex:1"></span>
+    <button id="tourSkip" style="background:none;border:none;color:#8b97a6;font-size:13px;cursor:pointer;padding:6px 8px">略過</button>
+    <button id="tourPrev" style="background:rgba(255,255,255,.08);border:none;color:#eef2f7;font-size:14px;cursor:pointer;padding:9px 14px;border-radius:9px">← 上一步</button>
+    <button id="tourNext" style="background:#ff6a2b;border:none;color:#fff;font-weight:700;font-size:14px;cursor:pointer;padding:9px 16px;border-radius:9px"></button>
+  </div>
+</div>
+<script>
+(function(){
+  const STEPS=[
+    { sels:["#tabs","#kitTitle"], color:"#f5c518", pad:8, cardFrom:"#kitTitle",
+      step:"第 1 步", title:"選展覽 & 輸入檔案名稱",
+      body:"這兩個地方一起看:<br>① 最上方每個分頁就是一個展覽(房間),先點你要編輯的展覽,資料互不影響。<br>② 右側「<b>封面標題</b>」輸入這份 Press Kit 的名稱(可分兩行,上英文下中文),會印在目錄頁最上方(P.1)。" },
+    { sels:["#qrPreviewBox","#qrUploadBtn"], color:"#22c55e", pad:10, cardFrom:"#qrPreviewBox",
+      step:"第 2 步", title:"上傳封面 QR Code",
+      body:"按「<b>📎 上傳圖片</b>」上傳 QR Code 圖片(選填)。上傳後會自動顯示在目錄頁右下角,並附上「PressKit電子版」標籤。" },
+    { sels:["#tocRows"], color:"#2f6bff", pad:8, cardFrom:"#tocRows",
+      step:"第 3 步", title:"上傳 PDF,自動生成頁碼",
+      body:"每個標題後方按「<b>📎</b>」上傳 <b>PDF</b>(Word 請先另存 PDF)。系統自動偵測頁數、即時算出頁碼。<br><br>按住「<b>↕</b>」上下拖曳可自由調整章節順序;點標題文字可直接改名;按「⋯」可清除或刪除章節。" },
+    { sels:["#saveAllBtn"], color:"#f5c518", pad:6, cardFrom:"#saveAllBtn",
+      step:"第 4 步", title:"存檔(大家才看得到)",
+      body:"上傳完按「<b>☁ 全部存檔</b>」寫入雲端。存檔後其他同事打開才會看到你上傳的內容,多人可分工上傳同一份。" },
+    { sels:["#dlKitBtn"], color:"#ff6a2b", pad:8, cardFrom:"#dlKitBtn",
+      step:"第 5 步", title:"下載整合版 Press Kit",
+      body:"全部弄完,按右側「<b>⬇ 下載完整 Press Kit(PDF)</b>」。系統會自動計算頁碼、產生目錄頁,再把所有章節<b>合併成一份大 PDF</b>,可直接對外發送。" }
+  ];
+  let i=0;
+  const mask=document.getElementById("tourMask"),
+        hiWrap=document.getElementById("tourHiWrap"),
+        card=document.getElementById("tourCard"),
+        dots=document.getElementById("tourDots");
+  function els(s){ return (s.sels||[]).map(q=>document.querySelector(q)).filter(el=>el&&el.getClientRects().length); }
+  function drawHi(list,color,pad){
+    hiWrap.innerHTML="";
+    list.forEach(el=>{
+      const r=el.getBoundingClientRect(),p=pad;
+      const box=document.createElement("div");
+      box.style.cssText="position:absolute;border-radius:10px;pointer-events:none;transition:all .25s ease;"+
+        "left:"+(r.left-p)+"px;top:"+(r.top-p)+"px;width:"+(r.width+p*2)+"px;height:"+(r.height+p*2)+"px;"+
+        "background:rgba(255,255,255,.06);"+
+        "border:3px solid "+color+";"+
+        "box-shadow:0 0 0 3px rgba(255,255,255,.85), 0 0 20px 3px "+color+"cc;";
+      hiWrap.appendChild(box);
+    });
+  }
+  function place(){
+    const s=STEPS[i], list=els(s);
+    document.getElementById("tourStep").textContent=s.step;
+    document.getElementById("tourTitle").textContent=s.title;
+    document.getElementById("tourBody").innerHTML=s.body;
+    document.getElementById("tourNext").textContent=(i===STEPS.length-1)?"完成 ✓":"下一步 →";
+    document.getElementById("tourPrev").style.visibility=i===0?"hidden":"visible";
+    dots.innerHTML=STEPS.map((_,k)=>'<span style="width:'+(k===i?18:7)+'px;height:7px;border-radius:9px;background:'+(k===i?'#ff6a2b':'#4a5766')+';transition:all .2s"></span>').join("");
+    const anchor=document.querySelector(s.cardFrom)||list[0];
+    if(anchor) anchor.scrollIntoView({block:"center",behavior:"smooth"});
+    setTimeout(()=>{
+      const nl=els(s);
+      if(!nl.length){ hiWrap.innerHTML=""; card.style.left="50%"; card.style.top="50%"; card.style.transform="translate(-50%,-50%)"; return; }
+      drawHi(nl,s.color,s.pad);
+      const a=document.querySelector(s.cardFrom)||nl[0];
+      const r=a.getBoundingClientRect(),cw=360,ch=card.offsetHeight||240,vw=innerWidth,vh=innerHeight;
+      let cx=r.right+18, cy=r.top;
+      if(cx+cw>vw-12) cx=Math.max(12,r.left-cw-18);
+      if(cx<12) cx=Math.min(vw-cw-12,Math.max(12,r.left));
+      if(cy+ch>vh-12) cy=Math.max(12,vh-ch-12);
+      card.style.transform="none"; card.style.left=cx+"px"; card.style.top=cy+"px";
+    },320);
+  }
+  window.startTour=function(){ i=0; mask.style.display=hiWrap.style.display=card.style.display="block"; place(); };
+  function end(){ mask.style.display=hiWrap.style.display=card.style.display="none"; hiWrap.innerHTML=""; try{localStorage.setItem("pk_tour_done","1");}catch(e){} }
+  document.getElementById("tourNext").onclick=()=>{ if(i<STEPS.length-1){i++;place();}else end(); };
+  document.getElementById("tourPrev").onclick=()=>{ if(i>0){i--;place();} };
+  document.getElementById("tourSkip").onclick=end;
+  mask.onclick=end;
+  addEventListener("resize",()=>{ if(card.style.display==="block")place(); });
+  addEventListener("scroll",()=>{ if(card.style.display==="block"){ const s=STEPS[i]; drawHi(els(s),s.color,s.pad); } },true);
+  try{ if(!localStorage.getItem("pk_tour_done")) setTimeout(startTour,900); }catch(e){}
+})();
 </script>
 </body>
 </html>
