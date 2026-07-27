@@ -109,8 +109,6 @@
   <h1>📰 Press Kit 產生器</h1>
   <span style="font-size:12.5px;opacity:.85">純前端版・Firebase 雲端同步・上傳 PDF 自動整合頁碼與目錄</span>
   <span id="connStatus" style="font-size:11.5px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.15);white-space:nowrap;margin-left:auto"></span>
-  <button onclick="startTour()" title="操作導覽"
-    style="font-size:13px;padding:6px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;cursor:pointer;white-space:nowrap">❔ 操作導覽</button>
 </header>
 <div id="fbBanner">⚠️ 尚未設定 Firebase：請打開本檔案，把最上方 firebaseConfig 換成你 Firebase 專案的設定後重新整理。</div>
 
@@ -119,6 +117,7 @@
 <main>
   <section class="panel" id="tocPanel">
     <h2><span class="htitle">📑 目錄（目錄頁 = P.1，直接在每行後方上傳）</span>
+      <button class="btn" id="tourBtn" onclick="startTour()" title="操作導覽" style="margin-left:auto;background:#ff6a2b;border-color:#ff6a2b;color:#fff;font-weight:700">❔ 操作導覽</button>
       <button class="btn save hdr" id="saveAllBtn" onclick="saveAllPending()">☁ 全部存檔</button>
       <button class="btn freeze" id="freezeBtn" onclick="toggleFreeze()"></button>
     </h2>
@@ -1107,6 +1106,27 @@ renderAll();
 <!-- ===== 操作導覽 Onboarding Tour ===== -->
 <div id="tourMask" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(4,10,22,.55)"></div>
 <div id="tourHiWrap" style="display:none;position:fixed;inset:0;z-index:9999;pointer-events:none"></div>
+<div id="tourPreview" style="display:none;position:fixed;z-index:9999;left:50%;top:50%;transform:translate(-50%,-50%);
+     width:300px;height:424px;background:#fff;border-radius:6px;box-shadow:0 20px 60px rgba(0,0,0,.55);
+     padding:26px 24px;box-sizing:border-box;font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;color:#111;pointer-events:none">
+  <div style="text-align:center;font-weight:800;font-size:15px;margin-top:6px">2028 ABC梅酒展</div>
+  <div style="text-align:center;font-weight:800;font-size:15px;margin:18px 0 3px;display:inline-block;width:100%">
+    <span style="border-bottom:3px double #111;padding-bottom:2px">目錄</span></div>
+  <div style="font-size:9.5px;line-height:2.2;margin-top:14px">
+    <div style="display:flex;justify-content:space-between"><span>● 董事長致詞參考稿</span><span>P.2-6</span></div>
+    <div style="display:flex;justify-content:space-between"><span>● 開幕典禮程序表</span><span>P.7</span></div>
+    <div style="display:flex;justify-content:space-between"><span>● 貴賓上台揭幕位置圖</span><span>P.8-10</span></div>
+    <div style="display:flex;justify-content:space-between"><span>● 開幕新聞稿</span><span>P.11-13</span></div>
+    <div style="display:flex;justify-content:space-between"><span>● 展覽簡介</span><span>P.14-16</span></div>
+  </div>
+  <div style="position:absolute;right:24px;bottom:34px;text-align:center">
+    <div style="font-size:9px;font-weight:700;margin-bottom:4px">PressKit電子版</div>
+    <div style="width:74px;height:74px;border:1px solid #444;display:grid;place-items:center;font-size:8px;color:#9aa7b5">QR</div>
+  </div>
+  <div style="position:absolute;left:0;right:0;bottom:12px;text-align:center;font-size:9px;color:#666">- 1 -</div>
+  <div style="position:absolute;left:50%;top:-14px;transform:translateX(-50%);background:#ff6a2b;color:#fff;
+       font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;white-space:nowrap">下載後的 P.1 長這樣 ↓</div>
+</div>
 <div id="tourCard" style="display:none;position:fixed;z-index:10000;max-width:360px;background:#1b2532;color:#eef2f7;border-radius:16px;padding:22px 22px 18px;box-shadow:0 18px 50px rgba(0,0,0,.5);font-size:15px;line-height:1.65">
   <div id="tourStep" style="font-size:13px;color:#ff8a5c;font-weight:700;letter-spacing:.5px;margin-bottom:6px"></div>
   <div id="tourTitle" style="font-size:19px;font-weight:800;margin-bottom:10px"></div>
@@ -1133,13 +1153,14 @@ renderAll();
     { sels:["#saveAllBtn"], color:"#f5c518", pad:6, cardFrom:"#saveAllBtn",
       step:"第 4 步", title:"存檔(大家才看得到)",
       body:"上傳完按「<b>☁ 全部存檔</b>」寫入雲端。存檔後其他同事打開才會看到你上傳的內容,多人可分工上傳同一份。" },
-    { sels:["#dlKitBtn"], color:"#ff6a2b", pad:8, cardFrom:"#dlKitBtn",
+    { sels:["#dlKitBtn"], color:"#ff6a2b", pad:8, cardFrom:"#dlKitBtn", preview:true,
       step:"第 5 步", title:"下載整合版 Press Kit",
       body:"全部弄完,按右側「<b>⬇ 下載完整 Press Kit(PDF)</b>」。系統會自動計算頁碼、產生目錄頁,再把所有章節<b>合併成一份大 PDF</b>,可直接對外發送。" }
   ];
   let i=0;
   const mask=document.getElementById("tourMask"),
         hiWrap=document.getElementById("tourHiWrap"),
+        preview=document.getElementById("tourPreview"),
         card=document.getElementById("tourCard"),
         dots=document.getElementById("tourDots");
   function els(s){ return (s.sels||[]).map(q=>document.querySelector(q)).filter(el=>el&&el.getClientRects().length); }
@@ -1158,6 +1179,7 @@ renderAll();
   }
   function place(){
     const s=STEPS[i], list=els(s);
+    preview.style.display=s.preview?"block":"none";
     document.getElementById("tourStep").textContent=s.step;
     document.getElementById("tourTitle").textContent=s.title;
     document.getElementById("tourBody").innerHTML=s.body;
@@ -1170,6 +1192,13 @@ renderAll();
       const nl=els(s);
       if(!nl.length){ hiWrap.innerHTML=""; card.style.left="50%"; card.style.top="50%"; card.style.transform="translate(-50%,-50%)"; return; }
       drawHi(nl,s.color,s.pad);
+      if(s.preview){
+        const cw=360,ch=card.offsetHeight||240,vw=innerWidth,vh=innerHeight;
+        card.style.transform="none";
+        card.style.left=Math.max(12,vw-cw-24)+"px";
+        card.style.top=Math.max(12,vh-ch-24)+"px";
+        return;
+      }
       const a=document.querySelector(s.cardFrom)||nl[0];
       const r=a.getBoundingClientRect(),cw=360,ch=card.offsetHeight||240,vw=innerWidth,vh=innerHeight;
       let cx=r.right+18, cy=r.top;
@@ -1180,7 +1209,7 @@ renderAll();
     },320);
   }
   window.startTour=function(){ i=0; mask.style.display=hiWrap.style.display=card.style.display="block"; place(); };
-  function end(){ mask.style.display=hiWrap.style.display=card.style.display="none"; hiWrap.innerHTML=""; try{localStorage.setItem("pk_tour_done","1");}catch(e){} }
+  function end(){ mask.style.display=hiWrap.style.display=card.style.display=preview.style.display="none"; hiWrap.innerHTML=""; try{localStorage.setItem("pk_tour_done","1");}catch(e){} }
   document.getElementById("tourNext").onclick=()=>{ if(i<STEPS.length-1){i++;place();}else end(); };
   document.getElementById("tourPrev").onclick=()=>{ if(i>0){i--;place();} };
   document.getElementById("tourSkip").onclick=end;
