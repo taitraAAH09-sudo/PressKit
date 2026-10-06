@@ -62,7 +62,7 @@
   #saveAllBtn.err{background:#fff;color:var(--danger);border-color:var(--danger);}
   #saveAllBtn.hdr{padding:6px 12px;font-size:12.5px;white-space:nowrap;}
   h2 .htitle{flex:1;min-width:160px;}
-  .doc-kt{text-align:center;font-size:16px;font-weight:700;margin-bottom:6px;white-space:pre-line;line-height:1.6;color:#111;}
+  .doc-kt{text-align:center;font-size:16px;font-weight:700;font-family:"DFKai-SB","BiauKai","標楷體","Kaiti TC",serif;margin-bottom:6px;white-space:pre-line;line-height:1.6;color:#111;}
   .doc h3{text-align:center;font-size:17px;color:#111;margin:14px auto 18px;letter-spacing:6px;text-indent:6px;
           width:fit-content;border-bottom:3px double #111;padding:0 4px 2px;font-weight:700;}
   .row{display:flex;align-items:center;gap:6px;padding:7px 0;border-radius:8px;}
@@ -914,8 +914,9 @@ async function drawTocCanvas(entries,kitTitle,qrDataUrl,showQr=true){
   const L=60*S, R=W-60*S;
 
   let y=70*S;
-  ctx.fillStyle="#111"; ctx.font=`700 ${17*S}px ${CJK}`; ctx.textAlign="center";
-  wrapTitle(ctx,kitTitle,R-L).forEach(line=>{ ctx.fillText(line,W/2,y); y+=27*S; });
+  // 目錄頁標題：跟封面一樣，標楷體 16pt 粗體，左右只留 30pt，沒手動換行就盡量一行
+  ctx.fillStyle="#111"; ctx.font=`700 ${16*S}px ${KAI_TITLE}`; ctx.textAlign="center";
+  wrapTitle(ctx,kitTitle,W-60*S).forEach(line=>{ ctx.fillText(line,W/2,y); y+=28*S; });
   y+=26*S;
   ctx.fillStyle="#111"; ctx.font=`700 ${18*S}px ${CJK}`; ctx.textAlign="center";
   ctx.fillText("目錄",W/2,y);
