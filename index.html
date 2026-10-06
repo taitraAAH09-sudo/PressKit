@@ -107,7 +107,7 @@
   .covMini{width:96px;height:136px;border:1px solid var(--line);background:#fff;position:relative;flex:none;overflow:hidden;
     box-shadow:0 1px 4px rgba(0,0,0,.08);font-family:"Times New Roman","DFKai-SB","BiauKai","標楷體","Kaiti TC",serif;color:#111;}
   .covMini img{position:absolute;left:14.5px;top:11.6px;width:28.5px;}
-  .covMini .ct{position:absolute;left:8px;right:8px;top:48px;text-align:center;font-weight:700;font-size:4.6px;line-height:1.55;white-space:pre-line;word-break:break-all;}
+  .covMini .ct{position:absolute;left:4.8px;right:4.8px;top:48px;text-align:center;font-weight:700;font-size:4.1px;font-family:"DFKai-SB","BiauKai","標楷體","Kaiti TC",serif;line-height:1.55;white-space:pre-line;word-break:break-all;}
   .covMini .cd{position:absolute;left:0;right:0;top:113px;text-align:center;font-size:4.6px;}
   footer{text-align:center;color:var(--sub);font-size:12px;padding:18px;}
 </style>
@@ -982,8 +982,9 @@ async function drawTocCanvas(entries,kitTitle,qrDataUrl,showQr=true){
 }
 
 /* 貿易署專卷封面：照 Word 第一頁（A4、左右邊界 90pt、上邊界 72pt；署徽 176.6×55.7pt 靠左上；
-   標題 18pt 粗體置中；日期 18pt 置中；字型 Times New Roman＋標楷體） */
+   標題 16pt 粗體置中、盡量一行；日期 18pt 置中；字型 Times New Roman＋標楷體） */
 const KAI=`"Times New Roman","DFKai-SB","BiauKai","標楷體","Kaiti TC","STKaiti",serif`;
+const KAI_TITLE=`"DFKai-SB","BiauKai","標楷體","Kaiti TC","STKaiti",serif`;   // 封面標題連數字也用標楷體
 async function drawTradeCoverCanvas(kitTitle,dateText){
   const S=2.2, W=595.28*S, H=841.89*S;
   const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
@@ -995,9 +996,11 @@ async function drawTradeCoverCanvas(kitTitle,dateText){
     ctx.drawImage(img,L,72*S,176.6*S,55.7*S);
   }catch(e){}
   ctx.fillStyle="#111"; ctx.textAlign="center"; ctx.textBaseline="alphabetic";
-  ctx.font=`700 ${18*S}px ${KAI}`;
-  const lines=wrapTitle(ctx,kitTitle,R-L);
-  const lh=31*S;
+  // 封面標題：標楷體 16pt 粗體；沒手動換行就盡量排成一行（標題區左右只留 30pt，A4 約可放 33 個中文字）
+  ctx.font=`700 ${16*S}px ${KAI_TITLE}`;
+  const TL=30*S, TR=W-30*S;
+  const lines=wrapTitle(ctx,kitTitle,TR-TL);
+  const lh=28*S;
   let y=335*S-(lines.length-2)*lh/2;      // 兩行時跟 Word 原稿位置一樣，行數變多就往上展開
   lines.forEach(line=>{ ctx.fillText(line,W/2,y); y+=lh; });
   if(dateText){
