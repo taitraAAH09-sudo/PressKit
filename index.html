@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRESS KIT / 貿易署專卷 產生器 V3</title>
+<title>PRESS KIT / 貿易署專卷 產生器 V5</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.11.0/mammoth.browser.min.js"></script>
@@ -132,7 +132,7 @@
       <button class="btn freeze" id="freezeBtn" onclick="toggleFreeze()"></button>
     </h2>
     <div class="hint">
-      每個標題後方按「📎」上傳 <b>PDF</b>（Word 檔請先另存成 PDF），自動偵測頁數、頁碼即時連動。上傳後按「☁ 存檔」大家才看得到。
+      每個標題後方按「📎」上傳檔案（右側「檔案格式」選 <b>PDF</b> 就傳 PDF、選 <b>Word</b> 就傳 .docx），自動偵測頁數、頁碼即時連動。上傳後按「☁ 存檔」大家才看得到。
       標題可直接點擊修改；按住 ⠿ 上下拖曳可換順序；按「⋯」展開檔案詳細（下載原檔／清除／刪除章節）。
     </div>
     <div class="wrap">
@@ -161,6 +161,14 @@
             <button type="button" data-mode="presskit" onclick="setKitMode('presskit')">PRESS KIT</button>
             <button type="button" data-mode="trade" onclick="setKitMode('trade')">貿易署專卷</button>
           </div>
+        </div>
+        <div>
+          <span class="cap" style="margin:0">檔案格式（各章節上傳哪種檔，就整合成哪種）</span>
+          <div class="modeSw" id="fmtSw">
+            <button type="button" data-fmt="pdf" onclick="setOutFmt('pdf')">PDF</button>
+            <button type="button" data-fmt="word" onclick="setOutFmt('word')">Word</button>
+          </div>
+          <div id="fmtNote" style="font-size:11.5px;color:var(--sub);margin-top:4px;line-height:1.55"></div>
         </div>
         <div id="tradeBlock" style="display:none">
           <span class="cap" style="margin:0">封面（照貿易署 Word 第一頁：署徽＋標題＋日期，不編頁碼，目錄頁仍是 P.1）</span>
@@ -228,7 +236,7 @@ const firebaseConfig = {
    就算 Firebase 完全連不上，其餘功能仍然正常運作，只有雲端同步會關閉。 */
 let initializeApp, getDatabase, ref, onValue, set, update, get, remove, push;
 
-const APP_VERSION = "V3";   // 之後每改一次就 +1：V2、V3、V4…
+const APP_VERSION = "V5";   // 之後每改一次就 +1：V2、V3、V4…
 document.getElementById("verBadge").textContent=APP_VERSION;
 const MOEA_LOGO = "data:image/png;base64,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";
 const ROOT = "PRESS_KIT";
@@ -470,6 +478,9 @@ function renderRows(){
     const pl=document.createElement("span");
     if(info.uploaded){ pl.className="plabel"; pl.textContent=info.label; }
     else { pl.className="plabel none"; pl.textContent=`${info.label}（尚未上傳）`; }
+    if(outFmt()==="word" && !pend && sec.fileName && extOf(sec)!=="docx"){
+      pl.className="plabel none"; pl.textContent=`${info.label}（這份是 PDF，請改傳 Word）`;
+    }
 
     const st=document.createElement("span"); st.className="stdot";
     if(pend){ st.textContent="🟡"; st.title="已選檔，尚未存檔"; }
@@ -591,26 +602,29 @@ function reorderTo(fromId,toId){
 /* ── 選檔：只收 PDF，自動偵測頁數 ── */
 function pickFile(secId){
   const inp=document.createElement("input"); inp.type="file";
-  inp.accept=".pdf,application/pdf";
+  const wantWord=outFmt()==="word";
+  inp.accept=wantWord?".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document":".pdf,application/pdf";
   inp.style.cssText="position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;";
   document.body.appendChild(inp);
   const cleanup=()=>{ if(inp.parentNode) inp.parentNode.removeChild(inp); };
   inp.onchange=async ()=>{
     const f=inp.files[0];
     if(!f){ cleanup(); return; }
-    if(!/\.pdf$/i.test(f.name)){ alert("只接受 PDF。Word 檔請先在 Word 裡「另存新檔 → PDF」再上傳。"); cleanup(); return; }
+    if(wantWord && !/\.docx$/i.test(f.name)){ alert(/\.doc$/i.test(f.name)?"這是舊版 .doc，請在 Word 裡「另存新檔 → Word 文件（.docx）」再上傳。":"目前是 Word 模式，只接受 .docx。要傳 PDF 請先把右側「檔案格式」切到 PDF。"); cleanup(); return; }
+    if(!wantWord && !/\.pdf$/i.test(f.name)){ alert("目前是 PDF 模式，只接受 PDF。要傳 Word 請先把右側「檔案格式」切到 Word。"); cleanup(); return; }
     if(f.size>MAX_MB*1024*1024){ alert(`檔案超過 ${MAX_MB}MB 上限，請壓縮後再上傳。`); cleanup(); return; }
     try{
       const bytes=await f.arrayBuffer();
-      const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true});
-      const pages=doc.getPageCount();
+      let pages;
+      if(wantWord){ pages=(await wkInspectDocx(bytes)).pages||1; }   // 讀 Word 存檔時記下的頁數
+      else { const doc=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true}); pages=doc.getPageCount(); }
       const base64=await new Promise((res,rej)=>{
         const r=new FileReader();
         r.onload=()=>res(r.result.split(",")[1]);
         r.onerror=()=>rej(new Error("讀檔失敗"));
         r.readAsDataURL(f);
       });
-      pending[curRoom][secId]={name:f.name,pages,size:f.size,base64,ext:"pdf"};
+      pending[curRoom][secId]={name:f.name,pages,size:f.size,base64,ext:wantWord?"docx":"pdf"};
       renderAll();
     }catch(e){ alert("無法讀取這個檔案："+e.message); }
     cleanup();
@@ -807,6 +821,12 @@ function paintTitlePreview(){
 
 /* ── 輸出類型：PRESS KIT（目錄頁附 QR）／貿易署專卷（前面多一頁 Word 第一頁的封面） ── */
 const kitMode=()=>room().kitMode==="trade"?"trade":"presskit";
+const outFmt=()=>room().outFmt==="word"?"word":"pdf";
+window.setOutFmt=(f)=>{
+  room().outFmt=f;
+  if(db) update(ref(db,`${ROOT}/rooms/${curRoom}`),{outFmt:f}).catch(()=>{ cloudStatus="error"; updateConnBadge(); });
+  renderAll();
+};
 window.setKitMode=(m)=>{
   room().kitMode=m;
   if(db) update(ref(db,`${ROOT}/rooms/${curRoom}`),{kitMode:m}).catch(()=>{ cloudStatus="error"; updateConnBadge(); });
@@ -823,7 +843,12 @@ function renderMode(){
   document.querySelectorAll("#modeSw button").forEach(b=>b.classList.toggle("on",b.dataset.mode===m));
   document.getElementById("qrBlock").style.display=m==="presskit"?"":"none";
   document.getElementById("tradeBlock").style.display=m==="trade"?"":"none";
-  document.getElementById("dlKitBtn").textContent=m==="trade"?"⬇ 下載完整 貿易署專卷（PDF）":"⬇ 下載完整 Press Kit（PDF）";
+  const fm=outFmt();
+  document.querySelectorAll("#fmtSw button").forEach(b=>b.classList.toggle("on",b.dataset.fmt===fm));
+  document.getElementById("fmtNote").innerHTML=fm==="word"
+    ? "各章節上傳 <b>.docx</b>，直接把原檔內容合併成同一份 Word（文字、表格、圖片、版面都照原檔），前面只加封面／目錄。開檔時 Word 會問是否更新欄位，按「是」目錄頁碼就會是實際頁數。"
+    : "各章節上傳 PDF，整合成一份 PDF。";
+  document.getElementById("dlKitBtn").textContent=`⬇ 下載完整 ${m==="trade"?"貿易署專卷":"Press Kit"}（${fm==="word"?"Word":"PDF"}）`;
   document.getElementById("covMiniLogo").src=MOEA_LOGO;
   const cd=document.getElementById("coverDate");
   if(document.activeElement!==cd) cd.value=room().coverDate||"";
@@ -888,6 +913,572 @@ function renderAllSafe(){
 document.addEventListener("focusout",()=>{
   if(deferredRender){ deferredRender=false; setTimeout(()=>renderAll(),120); }
 });
+
+/* ================= Word 版整合（V5）=================
+   封面／目錄頁由這裡產生（標題排版：中文標楷體、英文 Times New Roman、16 號、行高 28、左右對齊、避免孤字）；
+   各章節的 Word 原檔內容直接合併進同一份文件（見下方「真正的 Word 合併」）。
+   目錄頁碼用 PAGEREF 欄位，Word 開檔時按「是」更新欄位就會變成實際頁碼。 */
+const WK_PT=16, WK_LINE=28, WK_CJK="標楷體", WK_LATIN="Times New Roman";
+const wkX=s=>String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const WK_NO_START=/^[，。、；：！？）」』〉》】,.;:!?)\]%]/;
+const WK_NO_END=/[（「『〈《【(\[]$/;
+const wkWide=ch=>/[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦]/.test(ch);
+function wkTokens(text){
+  const raw=String(text||"").match(/[A-Za-z0-9À-ɏ'’.,:;@&/#+\-]+|\s+|[\s\S]/gu)||[];
+  const out=[];
+  raw.forEach(t=>{
+    const sp=/^\s+$/.test(t), last=out[out.length-1];
+    if(last&&!sp&&WK_NO_START.test(t)){ last.t+=t; return; }
+    if(last&&!sp&&!last.sp&&WK_NO_END.test(last.t)){ last.t+=t; return; }
+    out.push({t,sp});
+  });
+  return out;
+}
+function wkGlyphW(ch,pt,measure){ return wkWide(ch)?pt:(measure?measure(ch,pt):pt*0.5); }
+function wkWrap(tokens,avail,first,pt,d,measure){
+  const lines=[]; let cur=[], w=0, max=first;
+  tokens.forEach(tk=>{
+    let tw=0; for(const ch of tk.t) tw+=wkGlyphW(ch,pt,measure)+d;
+    if(tk.sp){ if(cur.length){ cur.push(tk); w+=tw; } return; }
+    if(cur.length && w+tw>max+0.01){
+      while(cur.length&&cur[cur.length-1].sp) cur.pop();
+      lines.push(cur); cur=[]; w=0; max=avail;
+    }
+    cur.push(tk); w+=tw;
+  });
+  if(cur.length) lines.push(cur);
+  return lines;
+}
+const wkChars=l=>l.map(x=>x.t).join("").replace(/[\s，。、；：！？）」』〉》】,.;:!?)\]（「『〈《【(\[]/g,"").length;
+/* 有孤字時微調整段字距（先緊縮、不行再放寬），回傳 twips；0＝不用調 */
+function wkAntiOrphan(text,availPt,firstPt,measure){
+  if(!(availPt>WK_PT*2)) return 0;
+  const tk=wkTokens(text);
+  const bad=d=>{ const l=wkWrap(tk,availPt,firstPt,WK_PT,d,measure); return l.length>=2&&wkChars(l[l.length-1])<=1; };
+  if(!bad(0)) return 0;
+  for(const d of [-0.3,-0.6,-0.9,-1.2,-1.5,-1.8,0.3,0.6,0.9,1.2]) if(!bad(d)) return Math.round(d*20);
+  return 0;
+}
+function wkRPr({bold=false,sp=0,u=null,sz=WK_PT,color=null}={}){
+  return `<w:rPr><w:rFonts w:ascii="${WK_LATIN}" w:hAnsi="${WK_LATIN}" w:eastAsia="${WK_CJK}" w:cs="${WK_LATIN}"/>`
+    +(bold?'<w:b/><w:bCs/>':'')+(color?`<w:color w:val="${color}"/>`:'')
+    +(sp?`<w:spacing w:val="${sp}"/>`:'')+(u?`<w:u w:val="${u}"/>`:'')
+    +`<w:sz w:val="${Math.round(sz*2)}"/><w:szCs w:val="${Math.round(sz*2)}"/></w:rPr>`;
+}
+const wkRun=(text,o)=>`<w:r>${wkRPr(o)}<w:t xml:space="preserve">${wkX(text)}</w:t></w:r>`;
+const wkTab=o=>`<w:r>${wkRPr(o)}<w:tab/></w:r>`;
+/* 段落：每個屬性都明寫，避免被原檔的「內文」樣式影響 */
+function wkP(runs,{jc="both",before=0,after=0,line=WK_LINE,lineRule="exact",left=0,right=0,hanging=0,tabs="",pageBreak=false,frame="",border="",sectPr="",markSz=WK_PT}={}){
+  return `<w:p><w:pPr>`
+    +(pageBreak?'<w:pageBreakBefore/>':'')
+    +frame+border
+    +(tabs?`<w:tabs>${tabs}</w:tabs>`:'')
+    +'<w:snapToGrid w:val="0"/>'
+    +`<w:spacing w:before="${Math.round(before*20)}" w:after="${Math.round(after*20)}" w:line="${Math.round(line*20)}" w:lineRule="${lineRule}"/>`
+    +`<w:ind w:left="${Math.round(left*20)}" w:right="${Math.round(right*20)}" ${hanging?`w:hanging="${Math.round(hanging*20)}"`:'w:firstLine="0"'}/>`
+    +`<w:jc w:val="${jc}"/>`
+    +`<w:rPr><w:sz w:val="${markSz*2}"/><w:szCs w:val="${markSz*2}"/></w:rPr>`
+    +sectPr
+    +`</w:pPr>${runs}</w:p>`;
+}
+/* 標題段落（可多行：每行一段），置中、粗體、避免孤字 */
+function wkTitleParas(text,availPt,measure,{bold=true,firstBefore=0,after=0,side=0}={}){
+  const lines=String(text||"").split("\n").map(s=>s.trim()).filter(Boolean);
+  return lines.map((l,i)=>wkP(wkRun(l,{bold,sp:wkAntiOrphan(l,availPt,availPt,measure)}),
+    {jc:"center",before:i===0?firstBefore:0,after:i===lines.length-1?after:0,left:-side,right:-side})).join("");
+}
+let wkDrawId=0;
+function wkInlineImg(rid,wPt,hPt,name){
+  const cx=Math.round(wPt*12700), cy=Math.round(hPt*12700); wkDrawId++;
+  return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${wkDrawId}" name="${name}${wkDrawId}"/>`
+    +`<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    +`<pic:pic><pic:nvPicPr><pic:cNvPr id="${wkDrawId}" name="${name}${wkDrawId}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    +`<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+}
+/* 浮動圖片：固定在版面（邊界內）右下角 */
+function wkAnchorImg(rid,wPt,hPt,name){
+  const cx=Math.round(wPt*12700), cy=Math.round(hPt*12700); wkDrawId++;
+  return `<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">`
+    +`<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="margin"><wp:align>right</wp:align></wp:positionH><wp:positionV relativeFrom="margin"><wp:align>bottom</wp:align></wp:positionV>`
+    +`<wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="${wkDrawId}" name="${name}${wkDrawId}"/>`
+    +`<wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    +`<pic:pic><pic:nvPicPr><pic:cNvPr id="${wkDrawId}" name="${name}${wkDrawId}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    +`<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>`;
+}
+/* 欄位 */
+const wkFld={
+  begin:(o,dirty)=>`<w:r>${wkRPr(o)}<w:fldChar w:fldCharType="begin"${dirty?' w:dirty="true"':''}/></w:r>`,
+  instr:(t,o)=>`<w:r>${wkRPr(o)}<w:instrText xml:space="preserve">${wkX(t)}</w:instrText></w:r>`,
+  sep:o=>`<w:r>${wkRPr(o)}<w:fldChar w:fldCharType="separate"/></w:r>`,
+  end:o=>`<w:r>${wkRPr(o)}<w:fldChar w:fldCharType="end"/></w:r>`,
+};
+const wkPageRef=(bm,cached,o)=>wkFld.begin(o,true)+wkFld.instr(` PAGEREF ${bm} \\h `,o)+wkFld.sep(o)+wkRun(String(cached),o)+wkFld.end(o);
+/* 「P.2」或「P.2-6」：起訖頁都用 PAGEREF 欄位，Word 更新欄位後即為實際頁碼 */
+function wkPageLabel(i,s,e,o){
+  return wkRun("P.",o)+wkPageRef(`_PKs${i}`,s,o)+(s===e?"":wkRun("-",o)+wkPageRef(`_PKe${i}`,e,o));
+}
+const wkTiny=(inner,{pageBreak=false}={})=>`<w:p><w:pPr>${pageBreak?'<w:pageBreakBefore/>':''}<w:snapToGrid w:val="0"/><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:ind w:left="0" w:right="0" w:firstLine="0"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr></w:pPr>${inner}</w:p>`;
+const wkBm=(id,name)=>`<w:bookmarkStart w:id="${id}" w:name="${name}"/><w:bookmarkEnd w:id="${id}"/>`;
+
+/* ================= 真正的 Word 合併（V5）=================
+   把每份上傳的 .docx 的內文（段落、表格、圖片、清單、註腳、版面設定）直接搬進同一份文件，
+   前面只加封面（貿易署專卷）＋目錄頁；內頁內容與格式照原檔。 */
+const NS_W="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const NS_R="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+const NS_WP="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+const NS_W14="http://schemas.microsoft.com/office/word/2010/wordml";
+const NS_XMLNS="http://www.w3.org/2000/xmlns/";
+const WK_SKIP_REL=new Set(["styles","numbering","settings","webSettings","fontTable","theme","footnotes","endnotes","header","footer","comments","customXml","glossaryDocument","people","commentsExtended","commentsIds","commentsExtensible","stylesWithEffects","printerSettings","customXmlProps"]);
+const wkParse=s=>new DOMParser().parseFromString(s,"application/xml");
+const wkSer=n=>new XMLSerializer().serializeToString(n);
+const wkEls=(root,name)=>Array.from(root.getElementsByTagNameNS(NS_W,name));
+const wkGet=(el,a)=>el.getAttributeNS(NS_W,a);
+const wkSet=(el,a,v)=>el.setAttributeNS(NS_W,"w:"+a,String(v));
+const wkKids=el=>Array.from(el.childNodes).filter(n=>n.nodeType===1);
+const wkKid=(el,name)=>wkKids(el).find(n=>n.namespaceURI===NS_W&&n.localName===name)||null;
+function wkNorm(path){
+  const out=[];
+  path.split("/").forEach(seg=>{ if(seg===""||seg===".") return; if(seg==="..") out.pop(); else out.push(seg); });
+  return out.join("/");
+}
+const wkDir=p=>p.includes("/")?p.slice(0,p.lastIndexOf("/")):"";
+const wkBase=p=>p.slice(p.lastIndexOf("/")+1);
+const wkRelsPath=p=>`${wkDir(p)?wkDir(p)+"/":""}_rels/${wkBase(p)}.rels`;
+const PPR_ORDER=["pStyle","keepNext","keepLines","pageBreakBefore","framePr","widowControl","numPr","suppressLineNumbers","pBdr","shd","tabs","suppressAutoHyphens","kinsoku","wordWrap","overflowPunct","topLinePunct","autoSpaceDE","autoSpaceDN","bidi","adjustRightInd","snapToGrid","spacing","ind","contextualSpacing","mirrorIndents","suppressOverlap","jc","textDirection","textAlignment","textboxTightWrap","outlineLvl","divId","cnfStyle","rPr","sectPr","pPrChange"];
+const RPR_ORDER=["rStyle","rFonts","b","bCs","i","iCs","caps","smallCaps","strike","dstrike","outline","shadow","emboss","imprint","noProof","snapToGrid","vanish","webHidden","color","spacing","w","kern","position","sz","szCs","highlight","u","effect","bdr","shd","fitText","vertAlign","rtl","cs","em","lang","eastAsianLayout","specVanish","oMath","rPrChange"];
+const SECT_ORDER=["headerReference","footerReference","footnotePr","endnotePr","type","pgSz","pgMar","paperSrc","pgBorders","lnNumType","pgNumType","cols","formProt","vAlign","noEndnote","titlePg","textDirection","bidi","rtlGutter","docGrid","printerSettings","sectPrChange"];
+function wkSortKids(el,order){
+  const kids=wkKids(el);
+  const idx=n=>{ const i=order.indexOf(n.localName); return i<0?999:i; };
+  kids.slice().sort((a,b)=>idx(a)-idx(b)).forEach(k=>el.appendChild(k));
+}
+/* 把 src（docDefaults）的屬性補進 dst（樣式），dst 已有的不動 */
+function wkMergeProps(dst,src,order){
+  if(!src) return;
+  wkKids(src).forEach(c=>{
+    const ex=wkKid(dst,c.localName);
+    if(!ex){ dst.appendChild(dst.ownerDocument.importNode(c,true)); return; }
+    Array.from(c.attributes).forEach(a=>{ if(!ex.hasAttributeNS(a.namespaceURI,a.localName)) ex.setAttributeNS(a.namespaceURI,a.name,a.value); });
+  });
+  wkSortKids(dst,order);
+}
+
+/* 讀一份 docx：頁數（Word 存檔時記錄的）＋最後一節的版面 */
+async function wkInspectDocx(bytes){
+  const zip=await JSZip.loadAsync(bytes);
+  const read=async p=>{ const f=zip.file(p); return f?f.async("string"):null; };
+  const app=await read("docProps/app.xml")||"";
+  const pagesM=/<Pages>(\d+)<\/Pages>/.exec(app);
+  if(!zip.file("word/document.xml")) throw new Error("這不是有效的 Word（.docx）檔");
+  return { zip, pages: pagesM?Math.max(1,Number(pagesM[1])):null };
+}
+
+/* 主程式：opts = { kitTitle, isTrade, dateText, stamp, logo:{base64}|null, qrBlock:{base64,w,h}|null,
+   sections:[{title, kind:'docx'|'missing'|'wrongfmt', bytes}], measure, onProgress } */
+async function buildKitDocx(opts){
+  const measure=opts.measure||null;
+  const say=opts.onProgress||(()=>{});
+  wkDrawId=0;
+  const out=new JSZip();
+  const docRels=[], fnRels=[], enRels=[];
+  const overrides=new Map();           // "/word/x.xml" -> content type
+  const rootNs=new Map([["w",NS_W],["r",NS_R],["wp",NS_WP],["a","http://schemas.openxmlformats.org/drawingml/2006/main"],["pic","http://schemas.openxmlformats.org/drawingml/2006/picture"],["mc","http://schemas.openxmlformats.org/markup-compatibility/2006"]]);
+  const ignorable=new Set();
+  let ridN=0; const nextRid=()=>`rIdK${++ridN}`;
+  let baseStyles=null, baseDefaultPara=null;
+  const absNums=[], nums=[]; let aCount=0, nCount=1;
+  const fnXml=[], enXml=[]; let fnCount=0, enCount=0;
+  let settingsSrc="", themeXml=null, fontTableXml=null;
+  let footerRid=null;
+  if(opts.stamp) footerRid=nextRid();
+
+  const footerRefEl=doc=>{ const f=doc.createElementNS(NS_W,"w:footerReference"); wkSet(f,"type","default"); f.setAttributeNS(NS_R,"r:id",footerRid); return f; };
+  /* 版面節：拿掉原檔頁首頁尾與頁碼重設，換上 Press Kit 頁尾 */
+  function fixSect(sp,first){
+    const doc=sp.ownerDocument;
+    wkKids(sp).forEach(c=>{ if(["headerReference","footerReference","printerSettings","titlePg"].includes(c.localName)) sp.removeChild(c); });
+    const pn=wkKid(sp,"pgNumType"); if(pn){ pn.removeAttributeNS(NS_W,"start"); if(!pn.attributes.length) sp.removeChild(pn); }
+    if(first){ const t=wkKid(sp,"type"); if(t) sp.removeChild(t); const nt=doc.createElementNS(NS_W,"w:type"); wkSet(nt,"val","nextPage"); sp.appendChild(nt); }
+    if(footerRid) sp.appendChild(footerRefEl(doc));
+    wkSortKids(sp,SECT_ORDER);
+  }
+
+  /* 單元：{ xml: 內容, sectXml: 這一單元的版面節 } */
+  const units=[];
+  const tocEntries=[];
+
+  // ---------- 各章節 ----------
+  const secs=[];
+  for(const [i,s] of opts.sections.entries()){
+    if(s.kind!=="docx"){ secs.push({...s,idx:i+1}); continue; }
+    say(`讀取：${s.title}`);
+    try{ const info=await wkInspectDocx(s.bytes); secs.push({...s,idx:i+1,info}); }
+    catch(e){ secs.push({...s,idx:i+1,kind:"bad"}); }
+  }
+  const firstDocx=secs.find(s=>s.kind==="docx");
+  let firstSect=null;   // 第一份 Word 的最後一節（目錄頁沿用它的紙張／邊界）
+
+  for(const s of secs){
+    if(s.kind!=="docx"){ units.push({kind:"placeholder",sec:s}); continue; }
+    say(`整合：${s.title}`);
+    const i=s.idx, zip=s.info.zip;
+    const read=async p=>{ const f=zip.file(p); return f?f.async("string"):null; };
+    // 內容類型
+    const ct=wkParse(await read("[Content_Types].xml")||"<Types/>");
+    const ctDef=new Map(), ctOv=new Map();
+    Array.from(ct.documentElement.childNodes).forEach(n=>{
+      if(n.nodeType!==1) return;
+      if(n.localName==="Default") ctDef.set((n.getAttribute("Extension")||"").toLowerCase(),n.getAttribute("ContentType"));
+      if(n.localName==="Override") ctOv.set(n.getAttribute("PartName"),n.getAttribute("ContentType"));
+    });
+    const dstOf=src=>src.startsWith("word/")?`word/pk${i}/${src.slice(5)}`:null;
+    const copied=new Set();
+    async function copyPart(src){
+      const dst=dstOf(src);
+      if(!dst||copied.has(src)) return dst;
+      copied.add(src);
+      const f=zip.file(src); if(!f) return dst;
+      out.file(dst,await f.async("uint8array"));
+      const type=ctOv.get("/"+src)||ctDef.get(src.split(".").pop().toLowerCase());
+      if(type) overrides.set("/"+dst,type);
+      const rp=wkRelsPath(src), rf=zip.file(rp);
+      if(rf){
+        const rx=await rf.async("string");
+        out.file(wkRelsPath(dst),rx);
+        const rd=wkParse(rx);
+        for(const r of Array.from(rd.getElementsByTagName("Relationship"))){
+          if(r.getAttribute("TargetMode")==="External") continue;
+          await copyPart(wkNorm(wkDir(src)+"/"+r.getAttribute("Target")));
+        }
+      }
+      return dst;
+    }
+    /* 處理一個部件的關聯（文件本體／註腳），回傳 舊 rId → 新 rId */
+    async function mapRels(partPath,list){
+      const map=new Map();
+      const rx=await read(wkRelsPath(partPath)); if(!rx) return map;
+      const rd=wkParse(rx);
+      for(const r of Array.from(rd.getElementsByTagName("Relationship"))){
+        const id=r.getAttribute("Id"), type=r.getAttribute("Type")||"", tgt=r.getAttribute("Target")||"";
+        if(WK_SKIP_REL.has(type.split("/").pop())) continue;
+        const nid=`pk${i}_${id}`;
+        if(r.getAttribute("TargetMode")==="External"){
+          list.push(`<Relationship Id="${nid}" Type="${wkX(type)}" Target="${wkX(tgt)}" TargetMode="External"/>`);
+        }else{
+          const src=wkNorm(wkDir(partPath)+"/"+tgt);
+          const dst=await copyPart(src);
+          if(!dst) continue;
+          list.push(`<Relationship Id="${nid}" Type="${wkX(type)}" Target="${wkX(dst.slice(5))}"/>`);
+        }
+        map.set(id,nid);
+      }
+      return map;
+    }
+
+    // ---- 樣式 ----
+    const numOff=nCount, absOff=aCount;
+    const styleMap=new Map();
+    let chunkDefaultPara=null, addPStyle=null;
+    const stx=await read("word/styles.xml");
+    if(stx){
+      const sd=wkParse(stx);
+      if(!baseStyles){
+        baseStyles=sd;
+        wkEls(sd,"style").forEach(st=>{
+          const id=wkGet(st,"styleId"); styleMap.set(id,id);
+          if(wkGet(st,"type")==="paragraph"&&wkGet(st,"default")==="1") baseDefaultPara=id;
+          wkEls(st,"numId").forEach(n=>{ const v=Number(wkGet(n,"val")); if(v) wkSet(n,"val",v+numOff); });
+        });
+      }else{
+        const baseById=new Map(wkEls(baseStyles,"style").map(st=>[wkGet(st,"styleId"),wkSer(st)]));
+        const defs=x=>{ const d=wkEls(x,"docDefaults")[0]; return d?wkSer(d):""; };
+        const defaultsDiffer=defs(sd)!==defs(baseStyles);
+        const styles=wkEls(sd,"style");
+        styles.forEach(st=>{
+          const id=wkGet(st,"styleId");
+          const isDef=wkGet(st,"type")==="paragraph"&&wkGet(st,"default")==="1";
+          if(isDef) chunkDefaultPara=id;
+          const same=baseById.has(id)&&baseById.get(id)===wkSer(st)&&!(isDef&&defaultsDiffer);
+          styleMap.set(id,same?id:`PK${i}${id}`);
+        });
+        const root=wkEls(baseStyles,"styles")[0];
+        styles.forEach(st=>{
+          const id=wkGet(st,"styleId"), nid=styleMap.get(id);
+          if(nid===id) return;
+          const c=baseStyles.importNode(st,true);
+          wkSet(c,"styleId",nid);
+          c.removeAttributeNS(NS_W,"default");
+          const nm=wkKid(c,"name"); if(nm) wkSet(nm,"val",`${wkGet(nm,"val")} (${i})`);
+          ["basedOn","next","link"].forEach(k=>{ const e=wkKid(c,k); if(e&&styleMap.has(wkGet(e,"val"))) wkSet(e,"val",styleMap.get(wkGet(e,"val"))); });
+          wkEls(c,"numId").forEach(n=>{ const v=Number(wkGet(n,"val")); if(v) wkSet(n,"val",v+numOff); });
+          // 預設段落樣式：把原檔的「文件預設字型／段落」補進來，內文才會跟原檔一樣
+          if(id===chunkDefaultPara){
+            const dd=wkEls(sd,"docDefaults")[0];
+            const dr=dd&&wkEls(dd,"rPrDefault")[0], dp=dd&&wkEls(dd,"pPrDefault")[0];
+            const ensure=name=>{ let e=wkKid(c,name); if(!e){ e=baseStyles.createElementNS(NS_W,"w:"+name); c.appendChild(e); } return e; };
+            if(dp&&wkKid(dp,"pPr")) wkMergeProps(ensure("pPr"),wkKid(dp,"pPr"),PPR_ORDER);
+            if(dr&&wkKid(dr,"rPr")) wkMergeProps(ensure("rPr"),wkKid(dr,"rPr"),RPR_ORDER);
+            wkSortKids(c,["name","aliases","basedOn","next","link","autoRedefine","hidden","uiPriority","semiHidden","unhideWhenUsed","qFormat","locked","personal","personalCompose","personalReply","rsid","pPr","rPr","tblPr","trPr","tcPr","tblStylePr"]);
+            addPStyle=nid;
+          }
+          root.appendChild(c);
+        });
+      }
+    }
+    const mapStyle=v=>styleMap.has(v)?styleMap.get(v):v;
+
+    // ---- 編號清單 ----
+    const nbx=await read("word/numbering.xml");
+    if(nbx){
+      const nd=wkParse(nbx);
+      let maxA=-1, maxN=0;
+      wkEls(nd,"abstractNum").forEach(a=>{
+        const id=Number(wkGet(a,"abstractNumId")); maxA=Math.max(maxA,id);
+        wkSet(a,"abstractNumId",id+absOff);
+        const ns=wkKid(a,"nsid"); if(ns) a.removeChild(ns);
+        ["styleLink","numStyleLink"].forEach(k=>{ const e=wkKid(a,k); if(e) wkSet(e,"val",mapStyle(wkGet(e,"val"))); });
+        wkEls(a,"pStyle").forEach(e=>wkSet(e,"val",mapStyle(wkGet(e,"val"))));
+        wkEls(a,"lvlPicBulletId").forEach(e=>e.parentNode.removeChild(e));
+        absNums.push(wkSer(a));
+      });
+      wkEls(nd,"num").forEach(n=>{
+        const id=Number(wkGet(n,"numId")); maxN=Math.max(maxN,id);
+        wkSet(n,"numId",id+numOff);
+        const an=wkKid(n,"abstractNumId"); if(an) wkSet(an,"val",Number(wkGet(an,"val"))+absOff);
+        nums.push(wkSer(n));
+      });
+      aCount=absOff+maxA+1; nCount=numOff+maxN+1;
+    }
+
+    // ---- 文件共用設定（以第一份 Word 為準）----
+    if(s===firstDocx){
+      settingsSrc=await read("word/settings.xml")||"";
+      themeXml=await read("word/theme/theme1.xml");
+      if(!zip.file("word/_rels/fontTable.xml.rels")) fontTableXml=await read("word/fontTable.xml");
+    }
+
+    // ---- 共用：處理一段內容（本文或註腳）裡的參照 ----
+    const idOff=i*100000;
+    function fixContent(root,ridMap,fnMap,enMap){
+      const all=Array.from(root.getElementsByTagName("*"));
+      all.forEach(el=>{
+        // 關聯 id
+        Array.from(el.attributes).forEach(a=>{
+          if(a.namespaceURI===NS_R){ const m=ridMap.get(a.value); if(m) a.value=m; }
+          if(a.namespaceURI===NS_W14&&(a.localName==="paraId"||a.localName==="textId")) el.removeAttributeNS(NS_W14,a.localName);
+        });
+        if(el.namespaceURI===NS_WP&&el.localName==="docPr") el.setAttribute("id",String(++wkDrawId));
+        if(el.namespaceURI!==NS_W) return;
+        const ln=el.localName;
+        if(ln==="pStyle"||ln==="rStyle"||ln==="tblStyle") wkSet(el,"val",mapStyle(wkGet(el,"val")));
+        else if(ln==="numId"){ const v=Number(wkGet(el,"val")); if(v) wkSet(el,"val",v+numOff); }
+        else if(ln==="footnoteReference"){ const m=fnMap.get(wkGet(el,"id")); if(m!=null) wkSet(el,"id",m); }
+        else if(ln==="endnoteReference"){ const m=enMap.get(wkGet(el,"id")); if(m!=null) wkSet(el,"id",m); }
+        else if(el.hasAttributeNS(NS_W,"id")){ const v=Number(wkGet(el,"id")); if(!isNaN(v)) wkSet(el,"id",v+idOff); }
+      });
+      ["commentRangeStart","commentRangeEnd","commentReference"].forEach(n=>wkEls(root,n).forEach(e=>e.parentNode.removeChild(e)));
+      // 原檔沒指定樣式的段落 → 指定成原檔的預設段落樣式（改名後的）
+      if(addPStyle) wkEls(root,"p").forEach(p=>{
+        let ppr=wkKid(p,"pPr");
+        if(ppr&&wkKid(ppr,"pStyle")) return;
+        if(!ppr){ ppr=p.ownerDocument.createElementNS(NS_W,"w:pPr"); p.insertBefore(ppr,p.firstChild); }
+        const ps=p.ownerDocument.createElementNS(NS_W,"w:pStyle"); wkSet(ps,"val",addPStyle);
+        ppr.insertBefore(ps,ppr.firstChild);
+      });
+    }
+
+    // ---- 註腳／章節附註 ----
+    const fnMap=new Map(), enMap=new Map();
+    async function takeNotes(part,tag,map,store,counterRef,relList){
+      const x=await read(part); if(!x) return;
+      const d=wkParse(x);
+      const rmap=await mapRels(part,relList);
+      wkEls(d,tag).forEach(n=>{
+        const t=wkGet(n,"type");
+        if(t&&t!=="normal") return;
+        const nid=++counterRef.v;
+        map.set(wkGet(n,"id"),String(nid));
+        wkSet(n,"id",nid);
+        fixContent(n,rmap,new Map(),new Map());
+        store.push(wkSer(n));
+      });
+    }
+    const fc={v:fnCount}, ec={v:enCount};
+    await takeNotes("word/footnotes.xml","footnote",fnMap,fnXml,fc,fnRels);
+    await takeNotes("word/endnotes.xml","endnote",enMap,enXml,ec,enRels);
+    fnCount=fc.v; enCount=ec.v;
+
+    // ---- 本文 ----
+    const ridMap=await mapRels("word/document.xml",docRels);
+    const dd=wkParse(await read("word/document.xml"));
+    const droot=dd.documentElement;
+    Array.from(droot.attributes).forEach(a=>{
+      if(a.namespaceURI===NS_XMLNS&&a.prefix==="xmlns"&&!rootNs.has(a.localName)) rootNs.set(a.localName,a.value);
+      if(a.localName==="Ignorable") a.value.split(/\s+/).filter(Boolean).forEach(p=>ignorable.add(p));
+    });
+    const body=wkEls(dd,"body")[0];
+    fixContent(body,ridMap,fnMap,enMap);
+    let kids=wkKids(body);
+    let finalSect=kids.length&&kids[kids.length-1].localName==="sectPr"?kids.pop():null;
+    if(!finalSect){ finalSect=dd.createElementNS(NS_W,"w:sectPr"); }
+    const sects=wkEls(body,"sectPr");   // 含內部各節（例如中間有橫式頁）
+    sects.forEach((sp,k)=>fixSect(sp,k===0));
+    if(!firstSect) firstSect=finalSect.cloneNode(true);
+    // 起訖書籤（目錄頁碼用）：放在第一段與最後一段
+    const paras=wkEls(body,"p");
+    const bm=(p,name,id,atEnd)=>{
+      const b1=dd.createElementNS(NS_W,"w:bookmarkStart"); wkSet(b1,"id",id); wkSet(b1,"name",name);
+      const b2=dd.createElementNS(NS_W,"w:bookmarkEnd"); wkSet(b2,"id",id);
+      if(atEnd){ p.appendChild(b1); p.appendChild(b2); }
+      else { const ppr=wkKid(p,"pPr"); const ref=ppr?ppr.nextSibling:p.firstChild; p.insertBefore(b2,ref); p.insertBefore(b1,b2); }
+    };
+    if(paras.length){ bm(paras[0],`_PKs${i}`,9000000+i*2,false); bm(paras[paras.length-1],`_PKe${i}`,9000001+i*2,true); }
+    units.push({kind:"docx",sec:s,dd,kids,finalSect});
+  }
+
+  // ---------- 預估頁碼（Word 更新欄位後會換成實際值）----------
+  let run=2;
+  secs.forEach(s=>{ const n=s.kind==="docx"?(s.info.pages||1):1; s.est=[run,run+n-1]; s.unknown=s.kind==="docx"&&!s.info.pages; run+=n; });
+
+  // ---------- 封面／目錄（標題規格：標楷體＋Times New Roman、16 號、行高 28、左右對齊、避免孤字）----------
+  const media=[];
+  const dfltPgSz='<w:pgSz w:w="11906" w:h="16838"/>';
+  const dfltPgMar='<w:pgMar w:top="1440" w:right="1800" w:bottom="1440" w:left="1800" w:header="851" w:footer="992" w:gutter="0"/>';
+  const footRef=footerRid?`<w:footerReference w:type="default" r:id="${footerRid}"/>`:"";
+  const tocSz=firstSect&&wkKid(firstSect,"pgSz")?wkSer(wkKid(firstSect,"pgSz")):dfltPgSz;
+  const tocMar=firstSect&&wkKid(firstSect,"pgMar")?wkSer(wkKid(firstSect,"pgMar")):dfltPgMar;
+  const tocGrid=firstSect&&wkKid(firstSect,"docGrid")?wkSer(wkKid(firstSect,"docGrid")):"";
+  const num=(tag,a,d)=>{ const m=new RegExp(`w:${a}="(-?\\d+)"`).exec(tag); return m?Number(m[1]):d; };
+  let pageW=num(tocSz,"w",11906);
+  if(/w:orient="landscape"/.test(tocSz)){ /* 第一份是橫式時，目錄頁仍用直式 A4 */ }
+  const tocIsLandscape=/w:orient="landscape"/.test(tocSz)||num(tocSz,"w",11906)>num(tocSz,"h",16838);
+  const tocSzX=tocIsLandscape?dfltPgSz:tocSz, tocMarX=tocIsLandscape?dfltPgMar:tocMar;
+  pageW=num(tocSzX,"w",11906);
+  const textW=(pageW-num(tocMarX,"left",1800)-num(tocMarX,"right",1800))/20;
+
+  let head="";
+  if(opts.isTrade){
+    let logoRun="";
+    if(opts.logo){ const r=nextRid(); media.push({rid:r,name:"pk_logo.png",base64:opts.logo.base64}); logoRun=wkInlineImg(r,176.6,55.7,"Logo"); }
+    head+=wkP(logoRun,{jc:"left",line:12,lineRule:"auto"});
+    const tLines=String(opts.kitTitle||"").split("\n").map(x=>x.trim()).filter(Boolean);
+    const n=Math.max(1,tLines.length);
+    const titleTop=Math.max(0,335-(n-2)*14-21-(72+56));
+    head+=wkTitleParas(opts.kitTitle,595.3-60,measure,{firstBefore:titleTop,side:60});
+    if(opts.dateText){ const used=72+56+titleTop+n*WK_LINE; head+=wkP(wkRun(opts.dateText),{jc:"center",before:Math.max(0,722-21-used)}); }
+    head+=wkP("",{sectPr:`<w:sectPr>${dfltPgSz}${dfltPgMar}<w:cols w:space="425"/></w:sectPr>`});
+  }
+  const tocSide=Math.max(0,(pageW/20-60-textW)/2);
+  head+=wkTitleParas(opts.kitTitle,textW+tocSide*2,measure,{after:26,side:tocSide});
+  head+=wkP(wkRun("目錄",{bold:true,u:"double"}),{jc:"center",after:22});
+  const tabs=`<w:tab w:val="left" w:pos="480"/><w:tab w:val="right" w:leader="dot" w:pos="${Math.round(textW*20)}"/>`;
+  secs.forEach(s=>{
+    const sp=wkAntiOrphan(s.title,textW-24-70,textW-24-70,measure);
+    const label=s.kind==="docx"?(s.unknown?wkRun("P.")+wkPageRef(`_PKs${s.idx}`,s.est[0],{})+wkRun("-")+wkPageRef(`_PKe${s.idx}`,s.est[1],{}):wkPageLabel(s.idx,s.est[0],s.est[1],{}))
+      :wkPageLabel(s.idx,s.est[0],s.est[1],{color:"B3261E"})+wkRun("（尚未上傳）",{color:"B3261E"});
+    head+=wkP(wkRun("●")+wkTab()+wkRun(s.title,{sp})+wkTab()+label,{jc:"both",left:24,hanging:24,tabs,after:7});
+  });
+  if(!opts.isTrade&&opts.qrBlock){
+    const r=nextRid(); media.push({rid:r,name:"pk_qrblock.png",base64:opts.qrBlock.base64});
+    head+=wkTiny(wkAnchorImg(r,opts.qrBlock.w,opts.qrBlock.h,"QRBlock"));
+  }
+  const tocSect=`<w:sectPr>${footRef}${opts.isTrade?'<w:type w:val="nextPage"/>':''}${tocSzX}${tocMarX}<w:pgNumType w:start="1"/><w:cols w:space="425"/>${tocGrid}</w:sectPr>`;
+
+  // ---------- 組合：每個單元結尾放自己的版面節 ----------
+  let body=head;
+  const holder=(sect)=>`<w:p><w:pPr><w:snapToGrid w:val="0"/><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:rPr><w:sz w:val="2"/><w:szCs w:val="2"/></w:rPr>${sect}</w:pPr></w:p>`;
+  if(units.length) body+=holder(tocSect);
+  units.forEach((u,k)=>{
+    const last=k===units.length-1;
+    if(u.kind==="placeholder"){
+      const s=u.sec;
+      const note=s.kind==="wrongfmt"?"此章節上傳的是 PDF，Word 版無法併入，請改上傳 Word 檔":
+                 s.kind==="bad"?"此章節的 Word 檔無法讀取，請重新上傳":
+                 "此章節內容尚未上傳，先保留 1 頁佔位，以免目錄頁碼跳號";
+      body+=wkP(wkBm(9000000+s.idx*2,`_PKs${s.idx}`)+wkRun("【 尚未上傳 】",{bold:true,color:"C98A00"}),{jc:"center",before:260});
+      body+=wkTitleParas(s.title,textW,measure,{bold:true});
+      body+=wkP(wkRun(note,{color:"6B7A8C",sp:wkAntiOrphan(note,textW,textW,measure)})+wkBm(9000001+s.idx*2,`_PKe${s.idx}`),{jc:"center"});
+      const sect=`<w:sectPr>${footRef}<w:type w:val="nextPage"/>${dfltPgSz}${dfltPgMar}<w:cols w:space="425"/></w:sectPr>`;
+      body+=last?sect:holder(sect);
+      return;
+    }
+    const {dd,kids,finalSect}=u;
+    if(last){
+      body+=kids.map(wkSer).join("")+wkSer(finalSect);
+    }else{
+      // 版面節掛在最後一段；最後一個是表格或那段已有節，就補一個極小的段落
+      const lastKid=kids[kids.length-1];
+      let ppr=lastKid&&lastKid.localName==="p"?wkKid(lastKid,"pPr"):null;
+      if(lastKid&&lastKid.localName==="p"&&!(ppr&&wkKid(ppr,"sectPr"))){
+        if(!ppr){ ppr=dd.createElementNS(NS_W,"w:pPr"); lastKid.insertBefore(ppr,lastKid.firstChild); }
+        ppr.appendChild(finalSect); wkSortKids(ppr,PPR_ORDER);
+        body+=kids.map(wkSer).join("");
+      }else{
+        body+=kids.map(wkSer).join("")+holder(wkSer(finalSect));
+      }
+    }
+  });
+  if(!units.length) body+=tocSect;
+
+  // ---------- 文件本體 ----------
+  const nsDecl=Array.from(rootNs.entries()).map(([p,u])=>`xmlns:${p}="${wkX(u)}"`).join(" ");
+  const ign=Array.from(ignorable).filter(p=>rootNs.has(p));
+  out.file("word/document.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${nsDecl}${ign.length?` mc:Ignorable="${ign.join(" ")}"`:""}><w:body>${body}</w:body></w:document>`);
+
+  // 頁尾頁碼
+  if(footerRid){
+    const o={sz:10};
+    const fp=wkP(wkRun("- ",o)+wkFld.begin(o)+wkFld.instr(" PAGE ",o)+wkFld.sep(o)+wkRun("1",o)+wkFld.end(o)+wkRun(" -",o),{jc:"center",line:12,lineRule:"auto",markSz:10});
+    out.file("word/footer1.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr xmlns:w="${NS_W}" xmlns:r="${NS_R}">${fp}</w:ftr>`);
+    docRels.push(`<Relationship Id="${footerRid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>`);
+    overrides.set("/word/footer1.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml");
+  }
+  // 樣式
+  const stylesXml=baseStyles?wkSer(baseStyles):`<w:styles xmlns:w="${NS_W}"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${WK_LATIN}" w:hAnsi="${WK_LATIN}" w:eastAsia="${WK_CJK}" w:cs="${WK_LATIN}"/><w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="en-US" w:eastAsia="zh-TW"/></w:rPr></w:rPrDefault><w:pPrDefault/></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+  out.file("word/styles.xml",(stylesXml.startsWith("<?xml")?"":'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')+stylesXml);
+  docRels.push(`<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`);
+  overrides.set("/word/styles.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml");
+  // 編號
+  if(absNums.length||nums.length){
+    out.file("word/numbering.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="${NS_W}">${absNums.join("")}${nums.join("")}</w:numbering>`);
+    docRels.push(`<Relationship Id="rIdNum" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>`);
+    overrides.set("/word/numbering.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml");
+  }
+  // 註腳／附註
+  const notesPart=(tag,items,rels,name,type,ct)=>{
+    if(!items.length) return;
+    const root=tag==="footnote"?"footnotes":"endnotes";
+    out.file(`word/${name}`,`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:${root} ${nsDecl}><w:${tag} w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:${tag}><w:${tag} w:type="continuationSeparator" w:id="0"><w:p><w:r><w:continuationSeparator/></w:r></w:p></w:${tag}>${items.join("")}</w:${root}>`);
+    if(rels.length) out.file(`word/_rels/${name}.rels`,`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.join("")}</Relationships>`);
+    docRels.push(`<Relationship Id="rId_${root}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/${root}" Target="${name}"/>`);
+    overrides.set(`/word/${name}`,ct);
+  };
+  notesPart("footnote",fnXml,fnRels,"footnotes.xml","footnotes","application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml");
+  notesPart("endnote",enXml,enRels,"endnotes.xml","endnotes","application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml");
+  // 佈景／字型表
+  if(themeXml){ out.file("word/theme/theme1.xml",themeXml); docRels.push(`<Relationship Id="rIdTheme" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>`); overrides.set("/word/theme/theme1.xml","application/vnd.openxmlformats-officedocument.theme+xml"); }
+  if(fontTableXml){ out.file("word/fontTable.xml",fontTableXml); docRels.push(`<Relationship Id="rIdFont" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/>`); overrides.set("/word/fontTable.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml"); }
+  // settings：開檔時自動更新欄位（目錄頁碼）＋沿用第一份 Word 的定位點與相容性設定
+  const grab=re=>{ const m=re.exec(settingsSrc); return m?m[0]:""; };
+  const fnPr=(fnXml.length?'<w:footnotePr><w:footnote w:id="-1"/><w:footnote w:id="0"/></w:footnotePr>':"")+(enXml.length?'<w:endnotePr><w:endnote w:id="-1"/><w:endnote w:id="0"/></w:endnotePr>':"");
+  out.file("word/settings.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="${NS_W}" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:w14="${NS_W14}" mc:Ignorable="w14">`
+    +grab(/<w:defaultTabStop\b[^>]*\/>/)+'<w:updateFields w:val="true"/>'+fnPr+grab(/<w:compat>[\s\S]*?<\/w:compat>/)+grab(/<w:themeFontLang\b[^>]*\/>/)+`</w:settings>`);
+  docRels.push(`<Relationship Id="rIdSettings" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>`);
+  overrides.set("/word/settings.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml");
+  // 封面署徽／QR
+  media.forEach(m=>{ out.file(`word/media/${m.name}`,m.base64,{base64:true});
+    docRels.push(`<Relationship Id="${m.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.name}"/>`); });
+  out.file("word/_rels/document.xml.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${docRels.join("")}</Relationships>`);
+  out.file("_rels/.rels",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  overrides.set("/word/document.xml","application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml");
+  out.file("[Content_Types].xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">`
+    +`<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>`
+    +`<Default Extension="png" ContentType="image/png"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="gif" ContentType="image/gif"/>`
+    +Array.from(overrides.entries()).map(([p,t])=>`<Override PartName="${wkX(p)}" ContentType="${wkX(t)}"/>`).join("")
+    +`</Types>`);
+  say("產生檔案中");
+  return out.generateAsync({type:opts.nodeBuffer?"nodebuffer":"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"DEFLATE"});
+}
 
 /* ── 目錄頁 Canvas（照 2024 版樣式） ── */
 const CJK=`"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif`;
@@ -1176,7 +1767,71 @@ function tocEntriesFromPrepared(prepared){
 }
 
 /* ── 下載完整 Press Kit（一律 PDF：自動計算頁碼＋產生目錄頁後合併） ── */
-window.downloadKit=async ()=>downloadKitPDF();
+window.downloadKit=async ()=>outFmt()==="word"?downloadKitWord():downloadKitPDF();
+
+/* QR 區塊（「PressKit電子版」＋框＋QR）畫成一張圖，Word 版錨定在目錄頁右下角 */
+async function makeQrBlockPng(qrDataUrl){
+  const S=4, Wp=150, Hp=160, W=Wp*S, H=Hp*S;
+  const cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#111"; ctx.font=`700 ${13.5*S}px ${CJK}`; ctx.textAlign="center";
+  ctx.fillText("PressKit電子版",W/2,15*S);
+  const by=26*S, bh=130*S;
+  ctx.strokeStyle="#444"; ctx.lineWidth=1.2*S; ctx.strokeRect(0.6*S,by,W-1.2*S,bh-0.6*S);
+  if(qrDataUrl){
+    try{
+      const img=await loadImage(qrDataUrl);
+      const pad=10*S, fit=Math.min((W-pad*2)/img.width,(bh-pad*2)/img.height);
+      const iw=img.width*fit, ih=img.height*fit;
+      ctx.drawImage(img,(W-iw)/2,by+(bh-ih)/2,iw,ih);
+    }catch(e){}
+  }else{
+    const qs=88*S; ctx.strokeStyle="#9aa7b5"; ctx.setLineDash([5*S,4*S]);
+    ctx.strokeRect((W-qs)/2,by+(bh-qs)/2,qs,qs); ctx.setLineDash([]);
+    ctx.fillStyle="#9aa7b5"; ctx.font=`400 ${9*S}px ${CJK}`; ctx.fillText("QR 黏貼處",W/2,by+bh/2+3*S);
+  }
+  return { base64: cv.toDataURL("image/png").split(",")[1], w:Wp, h:Hp };
+}
+
+async function downloadKitWord(){
+  const busy=document.getElementById("busy");
+  const secs=orderedSecs();
+  if(!secs.length){ alert("目前沒有任何章節。"); return; }
+  if(!db){ alert("目前沒有雲端連線，無法取得雲端存檔內容。"); return; }
+  const hasPending=secs.some(s=>pending[curRoom][s.id]);
+  if(hasPending && !confirm("有章節「已選檔但尚未存檔」。下載內容以雲端存檔為準，未存檔的檔案不會包含進去。仍要下載？")) return;
+  busy.textContent="⏳ 正在從雲端抓取檔案…";
+  try{
+    const sections=[];
+    for(const s of secs){
+      if(!s.fileName){ sections.push({title:s.title,kind:"missing"}); continue; }
+      if(extOf(s)!=="docx"){ sections.push({title:s.title,kind:"wrongfmt"}); continue; }
+      busy.textContent=`⏳ 讀取：${s.title}…`;
+      const snap=await get(ref(db,`${ROOT}/files/${curRoom}/${s.id}`));
+      const b64=snap.val();
+      if(!b64){ sections.push({title:s.title,kind:"missing"}); continue; }
+      sections.push({title:s.title,kind:"docx",bytes:Uint8Array.from(atob(b64),c=>c.charCodeAt(0))});
+    }
+    const isTrade=kitMode()==="trade";
+    const mc=document.createElement("canvas").getContext("2d");
+    const measure=(ch,pt)=>{ mc.font=`${pt}px "Times New Roman",serif`; return mc.measureText(ch).width; };
+    const blob=await buildKitDocx({
+      kitTitle:room().kitTitle||"", isTrade, dateText:rocDate(room().coverDate),
+      stamp:document.getElementById("stampPages").checked,
+      logo:{base64:MOEA_LOGO.split(",")[1]},
+      qrBlock:isTrade?null:await makeQrBlockPng(room().qrImage||null),
+      sections, measure, onProgress:t=>{ busy.textContent=`⏳ ${t}…`; }
+    });
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download=`${room().name||curRoom}_${isTrade?"貿易署專卷":"PressKit"}.docx`;
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    const miss=sections.filter(x=>x.kind!=="docx").map(x=>x.title);
+    busy.textContent="✅ 完成。打開 Word 時若問「是否更新欄位」請按「是」，目錄頁碼才會是實際頁數。"+
+      (miss.length?`（以佔位頁代替：${miss.join("、")}）`:"");
+  }catch(e){ busy.textContent=""; alert("產生 Word 失敗："+e.message); }
+}
 
 async function downloadKitPDF(){
   const busy=document.getElementById("busy");
@@ -1297,8 +1952,8 @@ renderAll();
       step:"第 2 步", title:"選輸出類型／上傳 QR Code",
       body:"先選「<b>PRESS KIT</b>」或「<b>貿易署專卷</b>」。選貿易署專卷會自動在最前面加一頁署徽封面（可選日期）；選 PRESS KIT 則按「<b>📎 上傳圖片</b>」上傳 QR Code 圖片(選填)。上傳後會自動顯示在目錄頁右下角,並附上「PressKit電子版」標籤。" },
     { sels:["#tocRows"], color:"#2f6bff", pad:8, cardFrom:"#tocRows",
-      step:"第 3 步", title:"上傳 PDF,自動生成頁碼",
-      body:"每個標題後方按「<b>📎</b>」上傳 <b>PDF</b>(Word 請先另存 PDF)。系統自動偵測頁數、即時算出頁碼。<br><br>按住「<b>↕</b>」上下拖曳可自由調整章節順序;點標題文字可直接改名;按「⋯」可清除或刪除章節。" },
+      step:"第 3 步", title:"上傳檔案,自動生成頁碼",
+      body:"右側「檔案格式」先選 <b>PDF</b> 或 <b>Word</b>,再在每個標題後方按「<b>📎</b>」上傳對應的檔案。系統自動偵測頁數、即時算出頁碼。<br><br>按住「<b>↕</b>」上下拖曳可自由調整章節順序;點標題文字可直接改名;按「⋯」可清除或刪除章節。" },
     { sels:["#saveAllBtn"], color:"#f5c518", pad:6, cardFrom:"#saveAllBtn",
       step:"第 4 步", title:"存檔(大家才看得到)",
       body:"上傳完按「<b>☁ 全部存檔</b>」寫入雲端。存檔後其他同事打開才會看到你上傳的內容,多人可分工上傳同一份。" },
